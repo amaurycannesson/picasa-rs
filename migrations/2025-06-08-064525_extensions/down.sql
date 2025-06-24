@@ -1,0 +1,2 @@
+DROP EXTENSION vector;
+DROP EXTENSION postgis;
