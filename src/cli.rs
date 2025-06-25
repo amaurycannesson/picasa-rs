@@ -1,9 +1,12 @@
 use clap::{Parser, Subcommand};
 use picasa_rs::{
     database,
-    models::semantic_search_result::SemanticSearchResult,
+    models::{
+        geospatial_search_result::GeospatialSearchResult,
+        semantic_search_result::SemanticSearchResult,
+    },
     photo_repository::PgPhotoRepository,
-    services::{photo_embedder, photo_scanner, semantic_search},
+    services::{geospatial_search, photo_embedder, photo_scanner, semantic_search},
     utils::progress_reporter,
 };
 use tabled::{Table, Tabled, settings::Style};
@@ -58,6 +61,12 @@ enum SearchCommands {
         #[arg(long = "limit", help = "Maximum number of results to return")]
         limit: Option<usize>,
     },
+    /// Search for photos by country
+    Geospatial {
+        /// The country name to search for
+        #[arg(help = "The country name to search for photos")]
+        country_query: String,
+    },
 }
 
 #[derive(Tabled)]
@@ -76,6 +85,23 @@ impl From<SemanticSearchResult> for SemanticSearchResultRow {
             id: result.id,
             path: result.path,
             similarity: result.similarity,
+        }
+    }
+}
+
+#[derive(Tabled)]
+struct GeospatialSearchResultRow {
+    #[tabled(rename = "ID")]
+    pub id: i32,
+    #[tabled(rename = "Path")]
+    pub path: String,
+}
+
+impl From<GeospatialSearchResult> for GeospatialSearchResultRow {
+    fn from(result: GeospatialSearchResult) -> Self {
+        Self {
+            id: result.id,
+            path: result.path,
         }
     }
 }
@@ -118,6 +144,15 @@ impl Cli {
                     let results_table: Vec<SemanticSearchResultRow> = results
                         .into_iter()
                         .map(SemanticSearchResultRow::from)
+                        .collect();
+                    let results_str = Table::new(results_table).with(Style::rounded()).to_string();
+                    println!("{}", results_str);
+                }
+                SearchCommands::Geospatial { country_query } => {
+                    let results = geospatial_search::search(&mut conn, &country_query);
+                    let results_table: Vec<GeospatialSearchResultRow> = results
+                        .into_iter()
+                        .map(GeospatialSearchResultRow::from)
                         .collect();
                     let results_str = Table::new(results_table).with(Style::rounded()).to_string();
                     println!("{}", results_str);

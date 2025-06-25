@@ -1,4 +1,4 @@
-CREATE TABLE photos (
+CREATE TABLE IF NOT EXISTS photos (
     id SERIAL,
 
     -- Unique file path
@@ -20,7 +20,7 @@ CREATE TABLE photos (
     lens_model TEXT,
     orientation INTEGER,
     date_taken TIMESTAMP,
-    gps_location GEOGRAPHY(POINT, 4326), 
+    gps_location GEOMETRY(POINT, 4326), 
     image_width INTEGER,
     image_height INTEGER,
 
@@ -28,7 +28,6 @@ CREATE TABLE photos (
     embedding VECTOR(512)
 );
 
-CREATE INDEX IF NOT EXISTS photos_embedding_cosine_idx 
-ON photos 
-USING ivfflat (embedding vector_cosine_ops) 
-WITH (lists = 100);
+CREATE INDEX IF NOT EXISTS photos_embedding_cosine_idx ON photos USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+CREATE INDEX IF NOT EXISTS photos_gps_location_gist_idx ON photos USING GIST (gps_location);

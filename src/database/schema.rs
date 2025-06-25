@@ -19,7 +19,7 @@ diesel::table! {
         lens_model -> Nullable<Text>,
         orientation -> Nullable<Int4>,
         date_taken -> Nullable<Timestamp>,
-        gps_location -> Nullable<Geography>,
+        gps_location -> Nullable<Geometry>,
         image_width -> Nullable<Int4>,
         image_height -> Nullable<Int4>,
         embedding -> Nullable<Vector>,

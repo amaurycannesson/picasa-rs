@@ -1,2 +1,3 @@
 DROP EXTENSION vector;
 DROP EXTENSION postgis;
+DROP EXTENSION pg_trgm;
