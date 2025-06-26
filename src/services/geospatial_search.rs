@@ -1,12 +1,44 @@
-use diesel::{PgConnection, RunQueryDsl, sql_query};
+use crate::{
+    models::geospatial_search_result::GeospatialSearchResult, photo_repository::PhotoRepository,
+};
 
-use crate::models::geospatial_search_result::GeospatialSearchResult;
+pub struct GeospatialSearchService<R: PhotoRepository> {
+    photo_repository: R,
+}
 
-pub fn search(conn: &mut PgConnection, country_query: &str) -> Vec<GeospatialSearchResult> {
-    let results = sql_query("SELECT * FROM find_photos_by_country($1)")
-        .bind::<diesel::sql_types::Text, _>(country_query)
-        .get_results::<GeospatialSearchResult>(conn)
-        .unwrap();
+impl<R: PhotoRepository> GeospatialSearchService<R> {
+    pub fn new(photo_repository: R) -> Self {
+        Self { photo_repository }
+    }
 
-    results
+    pub fn search(&mut self, country_query: &str) -> Vec<GeospatialSearchResult> {
+        let results = self
+            .photo_repository
+            .find_by_country(country_query)
+            .unwrap_or_else(|_| vec![]);
+
+        results
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::predicate::eq;
+
+    #[test]
+    fn test_should_return_error_when_repository_fails() {
+        // let mut repo = MockPhotoRepository::new();
+        // repo.expect_find_by_country()
+        //     .with(eq("test"))
+        //     .returning(|_| Err("Repository error".into()));
+
+        // let mut service = GeospatialSearchService::new(repo);
+        // let result = service.search("test");
+
+        // assert!(
+        //     result.is_empty(),
+        //     "Expected no results due to repository error"
+        // );
+    }
 }

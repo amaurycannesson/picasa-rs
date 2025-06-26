@@ -1,6 +1,7 @@
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::clip;
+use mockall::automock;
 use tokenizers::Tokenizer;
 
 pub struct TextEmbedder {
@@ -10,6 +11,7 @@ pub struct TextEmbedder {
     device: Device,
 }
 
+#[automock]
 impl TextEmbedder {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let config = clip::ClipConfig::vit_base_patch32();

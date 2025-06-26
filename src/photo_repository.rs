@@ -1,8 +1,12 @@
 use crate::{
     database::schema,
-    models::photo::{PaginatedPaths, Photo, PhotoEmbedding},
+    models::{
+        geospatial_search_result::GeospatialSearchResult,
+        photo::{PaginatedPaths, Photo, PhotoEmbedding},
+        semantic_search_result::SemanticSearchResult,
+    },
 };
-use diesel::prelude::*;
+use diesel::{prelude::*, sql_query};
 use mockall::automock;
 
 #[automock]
@@ -19,6 +23,17 @@ pub trait PhotoRepository {
 
     /// Updates embeddings for a batch of photos.
     fn update_embeddings(&mut self, embeddings: Vec<PhotoEmbedding>) -> QueryResult<usize>;
+
+    /// Find by text query.
+    fn find_by_text(
+        &mut self,
+        text_embedding: Vec<f32>,
+        threshold: Option<f32>,
+        limit: Option<usize>,
+    ) -> QueryResult<Vec<SemanticSearchResult>>;
+
+    /// Find by country.
+    fn find_by_country(&mut self, country_query: &str) -> QueryResult<Vec<GeospatialSearchResult>>;
 }
 
 pub struct PgPhotoRepository<'a> {
@@ -94,5 +109,33 @@ impl<'a> PhotoRepository for PgPhotoRepository<'a> {
             total_updated += updated;
         }
         Ok(total_updated)
+    }
+
+    fn find_by_text(
+        &mut self,
+        text_embedding: Vec<f32>,
+        threshold: Option<f32>,
+        limit: Option<usize>,
+    ) -> QueryResult<Vec<SemanticSearchResult>> {
+        let embedding_str = format!(
+            "[{}]",
+            text_embedding
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+
+        sql_query("SELECT * FROM similarity_search($1::vector, $2, $3)")
+            .bind::<diesel::sql_types::Text, _>(embedding_str)
+            .bind::<diesel::sql_types::Float, _>(threshold.unwrap_or(0.0))
+            .bind::<diesel::sql_types::Integer, _>(limit.unwrap_or(10) as i32)
+            .get_results::<SemanticSearchResult>(self.conn)
+    }
+
+    fn find_by_country(&mut self, country_query: &str) -> QueryResult<Vec<GeospatialSearchResult>> {
+        sql_query("SELECT * FROM find_photos_by_country($1)")
+            .bind::<diesel::sql_types::Text, _>(country_query)
+            .get_results::<GeospatialSearchResult>(self.conn)
     }
 }

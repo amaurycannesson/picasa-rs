@@ -6,7 +6,10 @@ use picasa_rs::{
         semantic_search_result::SemanticSearchResult,
     },
     photo_repository::PgPhotoRepository,
-    services::{geospatial_search, photo_embedder, photo_scanner, semantic_search},
+    services::{
+        geospatial_search::GeospatialSearchService, photo_embedder, photo_scanner,
+        semantic_search::SemanticSearchService,
+    },
     utils::progress_reporter,
 };
 use tabled::{Table, Tabled, settings::Style};
@@ -140,7 +143,12 @@ impl Cli {
                     threshold,
                     limit,
                 } => {
-                    let results = semantic_search::search(&mut conn, &query, threshold, limit);
+                    let mut semantic_search_service = SemanticSearchService::new(
+                        repo,
+                        picasa_rs::services::embedders::text::TextEmbedder::new()
+                            .expect("Failed to create embedder"),
+                    );
+                    let results = semantic_search_service.search(&query, threshold, limit);
                     let results_table: Vec<SemanticSearchResultRow> = results
                         .into_iter()
                         .map(SemanticSearchResultRow::from)
@@ -149,7 +157,8 @@ impl Cli {
                     println!("{}", results_str);
                 }
                 SearchCommands::Geospatial { country_query } => {
-                    let results = geospatial_search::search(&mut conn, &country_query);
+                    let mut geospatial_search_service = GeospatialSearchService::new(repo);
+                    let results = geospatial_search_service.search(&country_query);
                     let results_table: Vec<GeospatialSearchResultRow> = results
                         .into_iter()
                         .map(GeospatialSearchResultRow::from)
