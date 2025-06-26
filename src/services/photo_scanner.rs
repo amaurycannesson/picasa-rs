@@ -9,7 +9,7 @@ use nom_exif::{Exif, ExifIter, MediaParser, MediaSource};
 /// Scan photos in the given path and insert them into the repository.
 pub fn scan(
     path: &str,
-    repo: &mut impl PhotoRepository,
+    repo: &mut dyn PhotoRepository,
     with_exif: bool,
     with_hash: bool,
     progress: &dyn ProgressReporter,

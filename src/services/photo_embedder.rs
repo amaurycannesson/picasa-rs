@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// Compute embeddings
-pub fn embed(repo: &mut impl PhotoRepository, progress: &dyn ProgressReporter) {
+pub fn embed(repo: &mut dyn PhotoRepository, progress: &dyn ProgressReporter) {
     let image_embedder = ImageEmbedder::new().unwrap();
 
     let start = Instant::now();

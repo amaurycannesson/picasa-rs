@@ -115,8 +115,8 @@ impl Cli {
     }
 
     pub fn run(self) {
-        let mut conn = database::establish_connection();
-        let mut repo = PgPhotoRepository::new(&mut conn);
+        let pool = database::create_pool();
+        let mut repo = PgPhotoRepository::new(pool);
 
         match self.command {
             Commands::Scan {
