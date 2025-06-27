@@ -1,32 +1,14 @@
-use std::sync::Once;
-
 use diesel::{PgConnection, QueryDsl, RunQueryDsl, SelectableHelper};
 use pgvector::Vector;
 use picasa_rs::{
-    database::{self, DbPool, schema},
+    database::schema,
     models::photo::{Photo, PhotoEmbedding},
     photo_repository::{PgPhotoRepository, PhotoRepository},
 };
 use serial_test::serial;
 
-static INIT: Once = Once::new();
-
-fn get_pool() -> DbPool {
-    dotenvy::from_filename(".env.test").ok();
-
-    let mut pool = database::create_pool();
-    let mut conn = pool.get().unwrap();
-
-    INIT.call_once(|| {
-        database::run_migrations(&mut pool);
-    });
-
-    diesel::delete(schema::photos::table)
-        .execute(&mut conn)
-        .expect("Failed to clean test data");
-
-    pool
-}
+mod db;
+use db::get_pool;
 
 fn load_photos(conn: &mut PgConnection) -> Vec<Photo> {
     schema::photos::table
