@@ -4,16 +4,17 @@ use std::time::Instant;
 
 use crate::utils::progress_reporter::ProgressReporter;
 use crate::{models::photo::Photo, photo_repository::PhotoRepository};
+use anyhow::{Context, Result};
 use nom_exif::{Exif, ExifIter, MediaParser, MediaSource};
 
 /// Scan photos in the given path and insert them into the repository.
 pub fn scan(
     path: &str,
-    repo: &mut dyn PhotoRepository,
+    photo_repository: &mut dyn PhotoRepository,
     with_exif: bool,
     with_hash: bool,
     progress: &dyn ProgressReporter,
-) -> usize {
+) -> Result<usize> {
     let start = Instant::now();
     let photos: Vec<Photo> = ignore::WalkBuilder::new(path)
         .git_ignore(false)
@@ -48,12 +49,14 @@ pub fn scan(
         })
         .collect();
 
-    let count = repo.insert_batch(photos).unwrap();
-    let duration = start.elapsed();
+    let count = photo_repository
+        .insert_batch(photos)
+        .context("Failed to insert photos into repository")?;
 
+    let duration = start.elapsed();
     progress.finish_with_message(format!("✓ Scanned {} photos in {:.2?}", count, duration));
 
-    count
+    Ok(count)
 }
 
 /// Efficiently compute BLAKE3 hash of a file
@@ -117,7 +120,8 @@ mod tests {
             false,
             false,
             &NoOpProgressReporter,
-        );
+        )
+        .unwrap();
         assert_eq!(photo_count, 5, "Expected 5 photos to be scanned");
     }
 

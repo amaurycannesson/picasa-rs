@@ -27,6 +27,7 @@ tokenizers = { version = "0.21.1", default-features = false, features = ["onig"]
 tabled = "0.20.0"
 rayon = "1.10"
 log = "0.4"
+anyhow = "1.0.98"
 
 [dev-dependencies]
 serial_test = "3.2.0"

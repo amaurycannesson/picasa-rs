@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use picasa_rs::{
     database,
@@ -7,7 +8,10 @@ use picasa_rs::{
     },
     photo_repository::PgPhotoRepository,
     services::{
-        geospatial_search::GeospatialSearchService, photo_embedder, photo_scanner,
+        embedders::{image::ClipImageEmbedder, text::ClipTextEmbedder},
+        geospatial_search::GeospatialSearchService,
+        photo_embedder::PhotoEmbedderService,
+        photo_scanner,
         semantic_search::SemanticSearchService,
     },
     utils::progress_reporter,
@@ -114,7 +118,7 @@ impl Cli {
         Self::parse()
     }
 
-    pub fn run(self) {
+    pub fn run(self) -> Result<()> {
         let pool = database::create_pool();
         let mut repo = PgPhotoRepository::new(pool);
 
@@ -125,6 +129,7 @@ impl Cli {
                 with_hash,
             } => {
                 let progress_reporter = progress_reporter::CliProgressReporter::new();
+
                 photo_scanner::scan(
                     &root_directory,
                     &mut repo,
@@ -132,10 +137,18 @@ impl Cli {
                     with_hash,
                     &progress_reporter,
                 );
+
+                Ok(())
             }
             Commands::Embed => {
                 let progress_reporter = progress_reporter::CliProgressReporter::new();
-                photo_embedder::embed(&mut repo, &progress_reporter);
+                let image_embedder = ClipImageEmbedder::new()?;
+                let mut photo_embedder =
+                    PhotoEmbedderService::new(repo, image_embedder, progress_reporter);
+
+                photo_embedder.embed()?;
+
+                Ok(())
             }
             Commands::Search { search_command } => match search_command {
                 SearchCommands::Semantic {
@@ -143,28 +156,34 @@ impl Cli {
                     threshold,
                     limit,
                 } => {
-                    let mut semantic_search_service = SemanticSearchService::new(
-                        repo,
-                        picasa_rs::services::embedders::text::TextEmbedder::new()
-                            .expect("Failed to create embedder"),
-                    );
-                    let results = semantic_search_service.search(&query, threshold, limit);
+                    let text_embedder = ClipTextEmbedder::new()?;
+                    let mut semantic_search_service =
+                        SemanticSearchService::new(repo, text_embedder);
+
+                    let results = semantic_search_service.search(&query, threshold, limit)?;
                     let results_table: Vec<SemanticSearchResultRow> = results
                         .into_iter()
                         .map(SemanticSearchResultRow::from)
                         .collect();
                     let results_str = Table::new(results_table).with(Style::rounded()).to_string();
+
                     println!("{}", results_str);
+
+                    Ok(())
                 }
                 SearchCommands::Geospatial { country_query } => {
                     let mut geospatial_search_service = GeospatialSearchService::new(repo);
-                    let results = geospatial_search_service.search(&country_query);
+
+                    let results = geospatial_search_service.search(&country_query)?;
                     let results_table: Vec<GeospatialSearchResultRow> = results
                         .into_iter()
                         .map(GeospatialSearchResultRow::from)
                         .collect();
                     let results_str = Table::new(results_table).with(Style::rounded()).to_string();
+
                     println!("{}", results_str);
+
+                    Ok(())
                 }
             },
         }

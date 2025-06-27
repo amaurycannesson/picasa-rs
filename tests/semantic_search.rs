@@ -1,6 +1,5 @@
 use std::fs;
 
-use anyhow::Context;
 use diesel::connection::SimpleConnection;
 use picasa_rs::{
     photo_repository::PgPhotoRepository,

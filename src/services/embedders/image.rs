@@ -1,67 +1,96 @@
+use anyhow::{Context, Error, Result};
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::clip;
+use mockall::automock;
 use rayon::prelude::*;
 
-pub struct ImageEmbedder {
+#[automock]
+pub trait ImageEmbedder {
+    /// Computes embeddings for a batch of images.
+    fn embed(&self, image_paths: &Vec<String>) -> Result<Vec<Vec<f32>>>;
+}
+
+pub struct ClipImageEmbedder {
     config: clip::ClipConfig,
     model: clip::ClipModel,
     device: Device,
 }
 
-impl ImageEmbedder {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+impl ClipImageEmbedder {
+    pub fn new() -> Result<Self> {
         let device = Device::Cpu;
         let config = clip::ClipConfig::vit_base_patch32();
         let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&["model.safetensors"], DType::F32, &device)?
+            VarBuilder::from_mmaped_safetensors(&["model.safetensors"], DType::F32, &device)
+                .map_err(Error::from)
+                .context("Failed to load model safetensors")?
         };
-        let model = clip::ClipModel::new(vb, &config)?;
+        let model = clip::ClipModel::new(vb, &config)
+            .map_err(Error::from)
+            .context("Failed to create CLIP model")?;
         Ok(Self {
             config,
             model,
             device,
         })
     }
+}
 
+impl ImageEmbedder for ClipImageEmbedder {
     /// Computes embeddings for a batch of images.
-    pub fn embed(
-        &self,
-        image_paths: &Vec<String>,
-    ) -> Result<Vec<Vec<f32>>, Box<dyn std::error::Error>> {
-        let images = load_images(image_paths, self.config.image_size, &self.device)?;
-        let tensors = self.model.get_image_features(&images)?;
-        let embeddings = tensors.to_vec2::<f32>()?;
+    fn embed(&self, image_paths: &Vec<String>) -> Result<Vec<Vec<f32>>> {
+        let images = load_images(image_paths, self.config.image_size, &self.device)
+            .context("Failed to load images")?;
+        let tensors = self
+            .model
+            .get_image_features(&images)
+            .map_err(Error::from)
+            .context("Failed to compute image features")?;
+        let embeddings = tensors
+            .to_vec2::<f32>()
+            .map_err(Error::from)
+            .context("Failed to convert tensors to embeddings")?;
         Ok(embeddings)
     }
 }
 
-fn load_heic_image_data<T: AsRef<std::path::Path>>(
-    path: T,
-    image_size: usize,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn load_heic_image_data<T: AsRef<std::path::Path>>(path: T, image_size: usize) -> Result<Vec<u8>> {
     use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 
     let lib_heif = LibHeif::new();
-    let ctx = HeifContext::read_from_file(path.as_ref().to_str().unwrap())?;
-    let handle = ctx.primary_image_handle()?;
+    let ctx = HeifContext::read_from_file(
+        path.as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Invalid path"))?,
+    )
+    .context("Failed to read HEIC file")?;
+    let handle = ctx
+        .primary_image_handle()
+        .context("Failed to get primary image handle")?;
 
-    let image = lib_heif.decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)?;
+    let image = lib_heif
+        .decode(&handle, ColorSpace::Rgb(RgbChroma::Rgb), None)
+        .context("Failed to decode HEIC image")?;
 
-    let resized_image = image.scale(image_size as u32, image_size as u32, None)?;
+    let resized_image = image
+        .scale(image_size as u32, image_size as u32, None)
+        .context("Failed to resize HEIC image")?;
 
     let planes = resized_image.planes();
-    let interleaved_plane = planes.interleaved.ok_or("No interleaved plane available")?;
+    let interleaved_plane = planes
+        .interleaved
+        .ok_or_else(|| anyhow::anyhow!("No interleaved plane available"))?;
     let img_data = interleaved_plane.data.to_vec();
 
     Ok(img_data)
 }
 
-fn load_image_data<T: AsRef<std::path::Path>>(
-    path: T,
-    image_size: usize,
-) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let img = image::ImageReader::open(path)?.decode()?;
+fn load_image_data<T: AsRef<std::path::Path>>(path: T, image_size: usize) -> Result<Vec<u8>> {
+    let img = image::ImageReader::open(&path)
+        .context("Failed to open image file")?
+        .decode()
+        .context("Failed to decode image")?;
     let img = img.resize_to_fill(
         image_size as u32,
         image_size as u32,
@@ -76,11 +105,11 @@ fn load_images<T: AsRef<std::path::Path> + Sync>(
     paths: &Vec<T>,
     image_size: usize,
     device: &Device,
-) -> Result<Tensor, Box<dyn std::error::Error>> {
-    let image_data: Vec<Result<Vec<u8>, String>> = paths
+) -> Result<Tensor> {
+    let image_data: Vec<Result<Vec<u8>, anyhow::Error>> = paths
         .par_iter()
-        .map(|path| -> Result<Vec<u8>, String> {
-            let result = if path
+        .map(|path| -> Result<Vec<u8>, anyhow::Error> {
+            if path
                 .as_ref()
                 .extension()
                 .and_then(|ext| ext.to_str())
@@ -90,8 +119,7 @@ fn load_images<T: AsRef<std::path::Path> + Sync>(
                 load_heic_image_data(path, image_size)
             } else {
                 load_image_data(path, image_size)
-            };
-            result.map_err(|e| e.to_string())
+            }
         })
         .collect();
 
@@ -99,19 +127,25 @@ fn load_images<T: AsRef<std::path::Path> + Sync>(
     for result in image_data {
         match result {
             Ok(data) => processed_data.push(data),
-            Err(e) => return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))),
+            Err(e) => return Err(e.context("Failed to process image data")),
         }
     }
 
     let mut images = Vec::new();
     for data in processed_data {
-        let img = Tensor::from_vec(data, (image_size, image_size, 3), &device)?
-            .permute((2, 0, 1))?
-            .to_dtype(DType::F32)?
-            .affine(2. / 255., -1.)?;
+        let img = (|| {
+            Tensor::from_vec(data, (image_size, image_size, 3), &device)?
+                .permute((2, 0, 1))?
+                .to_dtype(DType::F32)?
+                .affine(2. / 255., -1.)
+                .map_err(Error::from)
+        })()
+        .context("Failed to create tensor from image data")?;
         images.push(img);
     }
 
-    let stacked_images = Tensor::stack(&images, 0)?;
+    let stacked_images = Tensor::stack(&images, 0)
+        .map_err(Error::from)
+        .context("Failed to stack image tensors")?;
     Ok(stacked_images)
 }

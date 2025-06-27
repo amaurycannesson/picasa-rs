@@ -35,10 +35,7 @@ picasa-cli search semantic "sunset over mountains"
 
 ## TODO
 
-- [ ] Add geospatial search
 - [ ] Improve documentation (install steps)
-- [ ] Add PostgreSQL Dockerfile
-- [ ] Improve error handling
 - [ ] Add integration tests
 - [ ] Package CLIP model with binary
 - [ ] Add GUI, Web server, MCP server
