@@ -1,15 +1,13 @@
-use std::time::SystemTime;
+use std::{
+    fs::File,
+    io::{BufReader, Read},
+    path::Path,
+};
 
-use chrono::{DateTime, Local, NaiveDateTime};
-use nom_exif::GPSInfo;
+use nom_exif::{Exif, ExifIter, GPSInfo, MediaParser, MediaSource};
 use postgis_diesel::types::Point;
 
 pub mod progress_reporter;
-
-/// Convert a SystemTime to NaiveDateTime
-pub fn system_time_to_naive_datetime(time: SystemTime) -> NaiveDateTime {
-    DateTime::<Local>::from(time).naive_utc()
-}
 
 /// Convert EXIF GPSInfo to PostGIS Point
 pub fn convert_exif_gps_info_to_postgis_point(gps_info: GPSInfo) -> Option<Point> {
@@ -51,21 +49,38 @@ pub fn convert_gps_coordinate(
     deg + (min / 60.0) + (sec / 3600.0)
 }
 
+/// Efficiently compute BLAKE3 hash of a file
+pub fn compute_file_hash<P: AsRef<Path>>(path: P) -> Result<String, std::io::Error> {
+    let file = File::open(path)?;
+    let mut reader = BufReader::with_capacity(64 * 1024, file);
+    let mut hasher = blake3::Hasher::new();
+
+    let mut buffer = [0; 64 * 1024];
+    loop {
+        let bytes_read = reader.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    Ok(hasher.finalize().to_hex().to_string())
+}
+
+/// Extract EXIF data
+pub fn extract_exif<P: AsRef<Path>>(path: P) -> Option<Exif> {
+    let media_source = MediaSource::file_path(path).ok()?;
+    if !media_source.has_exif() {
+        return None;
+    }
+    let iter: ExifIter = MediaParser::new().parse(media_source).ok()?;
+    Some(iter.into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use nom_exif::{GPSInfo, LatLng};
-    use std::time::{Duration, UNIX_EPOCH};
-
-    #[test]
-    fn test_should_convert_system_time_to_naive_datetime() {
-        let seconds_since_epoch = 1704110400; // 2024-01-01 12:00:00 UTC
-        let system_time = UNIX_EPOCH + Duration::from_secs(seconds_since_epoch);
-
-        let result = system_time_to_naive_datetime(system_time);
-
-        assert_eq!(result.and_utc().to_rfc3339(), "2024-01-01T12:00:00+00:00");
-    }
 
     #[test]
     fn test_should_convert_gps_coordinates_from_degrees_minutes_seconds_to_decimal() {

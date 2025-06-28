@@ -1,11 +1,8 @@
-use std::fs::File;
-use std::io::{BufReader, Read};
 use std::time::Instant;
 
-use crate::utils::progress_reporter::ProgressReporter;
+use crate::utils::{self, progress_reporter::ProgressReporter};
 use crate::{models::photo::NewPhoto, photo_repository::PhotoRepository};
 use anyhow::{Context, Result};
-use nom_exif::{Exif, ExifIter, MediaParser, MediaSource};
 
 /// Scan photos in the given path and insert them into the repository.
 pub fn scan(
@@ -28,24 +25,32 @@ pub fn scan(
                 .map(|ext| matches!(ext.to_lowercase().as_str(), "jpg" | "jpeg" | "png" | "heic"))
                 .unwrap_or(false)
         })
-        .map(|entry| {
-            let mut new_photo = NewPhoto::new(entry.path());
-
-            if with_hash {
-                if let Ok(hash) = compute_file_hash(&new_photo.path) {
-                    new_photo = new_photo.with_hash(hash);
+        .filter_map(|entry| match NewPhoto::new(entry.path()) {
+            Ok(mut new_photo) => {
+                if with_hash {
+                    if let Ok(hash) = utils::compute_file_hash(&new_photo.path) {
+                        new_photo = new_photo.with_hash(hash);
+                    }
                 }
-            }
 
-            if with_exif {
-                if let Some(exif) = extract_exif(&new_photo.path) {
-                    new_photo = new_photo.with_exif(exif);
+                if with_exif {
+                    if let Some(exif) = utils::extract_exif(&new_photo.path) {
+                        new_photo = new_photo.with_exif(exif);
+                    }
                 }
+
+                progress.set_message(format!("{}", new_photo.path));
+
+                Some(new_photo)
             }
-
-            progress.set_message(format!("{}", new_photo.path));
-
-            new_photo
+            Err(err) => {
+                progress.set_message(format!(
+                    "Error processing {}: {}",
+                    entry.path().display(),
+                    err
+                ));
+                None
+            }
         })
         .collect();
 
@@ -57,34 +62,6 @@ pub fn scan(
     progress.finish_with_message(format!("✓ Scanned {} photos in {:.2?}", count, duration));
 
     Ok(count)
-}
-
-/// Efficiently compute BLAKE3 hash of a file
-fn compute_file_hash(path: &str) -> Result<String, std::io::Error> {
-    let file = File::open(path)?;
-    let mut reader = BufReader::with_capacity(64 * 1024, file);
-    let mut hasher = blake3::Hasher::new();
-
-    let mut buffer = [0; 64 * 1024];
-    loop {
-        let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..bytes_read]);
-    }
-
-    Ok(hasher.finalize().to_hex().to_string())
-}
-
-/// Extract EXIF data
-fn extract_exif(path: &str) -> Option<Exif> {
-    let media_source = MediaSource::file_path(path).ok()?;
-    if !media_source.has_exif() {
-        return None;
-    }
-    let iter: ExifIter = MediaParser::new().parse(media_source).ok()?;
-    Some(iter.into())
 }
 
 #[cfg(test)]
@@ -133,7 +110,7 @@ mod tests {
 
         std::fs::write(&test_file, b"Hello, World!").unwrap();
 
-        let hash = compute_file_hash(test_file.to_str().unwrap()).unwrap();
+        let hash = utils::compute_file_hash(test_file.to_str().unwrap()).unwrap();
 
         assert_eq!(
             hash,

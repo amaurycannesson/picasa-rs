@@ -27,6 +27,9 @@ fn test_should_find_photo_with_desk() {
     let results = semantic_search_service
         .search("desk", None, None)
         .expect("Search failed");
-
-    assert_eq!(results[0].photo.path, "data/images/sub/desk_vietnam.heic");
+    println!("{:?}", results);
+    assert_eq!(
+        results[0].photo.path,
+        "tests/data/images/sub/desk_vietnam.heic"
+    );
 }

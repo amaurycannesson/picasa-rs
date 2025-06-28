@@ -7,9 +7,9 @@ CREATE TABLE IF NOT EXISTS photos (
     -- File metadata
     file_name TEXT NOT NULL,
     file_size BIGINT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    modified_at TIMESTAMP NOT NULL,
-    indexed_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    modified_at TIMESTAMPTZ NOT NULL,
+    indexed_at TIMESTAMPTZ NOT NULL,
 
     -- File blake3 hash
     hash TEXT,
@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS photos (
     camera_model TEXT,
     lens_model TEXT,
     orientation INTEGER,
-    date_taken TIMESTAMP,
+    date_taken_local TIMESTAMP,
+    date_taken_utc TIMESTAMPTZ,
     gps_location GEOMETRY(POINT, 4326), 
     image_width INTEGER,
     image_height INTEGER,

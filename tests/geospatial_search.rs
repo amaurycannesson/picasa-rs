@@ -27,6 +27,9 @@ fn test_should_find_photo_in_vietnam() {
         .expect("Search failed");
 
     assert_eq!(results.len(), 2);
-    assert_eq!(results[0].path, "data/images/sub/desk_vietnam.heic");
-    assert_eq!(results[1].path, "data/images/sub/sub/building_vietnam.jpg");
+    assert_eq!(results[0].path, "tests/data/images/sub/desk_vietnam.heic");
+    assert_eq!(
+        results[1].path,
+        "tests/data/images/sub/sub/building_vietnam.jpg"
+    );
 }
