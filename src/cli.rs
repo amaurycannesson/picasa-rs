@@ -86,8 +86,8 @@ struct SemanticSearchResultRow {
 impl From<SemanticSearchResult> for SemanticSearchResultRow {
     fn from(result: SemanticSearchResult) -> Self {
         Self {
-            id: result.id,
-            path: result.path,
+            id: result.photo.id,
+            path: result.photo.path,
             similarity: result.similarity,
         }
     }

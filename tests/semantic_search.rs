@@ -28,5 +28,5 @@ fn test_should_find_photo_with_desk() {
         .search("desk", None, None)
         .expect("Search failed");
 
-    assert_eq!(results[0].path, "data/images/sub/desk_vietnam.heic");
+    assert_eq!(results[0].photo.path, "data/images/sub/desk_vietnam.heic");
 }

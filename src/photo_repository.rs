@@ -130,12 +130,20 @@ impl PhotoRepository for PgPhotoRepository {
                 .join(",")
         );
 
-        sql_query("SELECT * FROM similarity_search($1::vector, $2, $3)")
-            .bind::<diesel::sql_types::Text, _>(embedding_str)
-            .bind::<diesel::sql_types::Float, _>(threshold.unwrap_or(0.0))
-            .bind::<diesel::sql_types::Integer, _>(limit.unwrap_or(10) as i32)
-            .get_results::<SemanticSearchResult>(&mut conn)
-            .map_err(Error::from)
+        sql_query(
+            "SELECT
+                photos.*,
+                (1 - (photos.embedding <=> $1::vector))::float4 as similarity
+            FROM photos
+            WHERE (1 - (photos.embedding <=> $1::vector)) > $2
+            ORDER BY similarity DESC
+            LIMIT $3",
+        )
+        .bind::<diesel::sql_types::Text, _>(embedding_str)
+        .bind::<diesel::sql_types::Float, _>(threshold.unwrap_or(0.0))
+        .bind::<diesel::sql_types::Integer, _>(limit.unwrap_or(10) as i32)
+        .get_results::<SemanticSearchResult>(&mut conn)
+        .map_err(Error::from)
     }
 
     fn find_by_country(&mut self, country_query: &str) -> Result<Vec<Photo>> {
