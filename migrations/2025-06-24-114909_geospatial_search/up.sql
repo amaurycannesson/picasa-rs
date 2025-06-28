@@ -1,9 +1,9 @@
 CREATE INDEX countries_name_trgm_idx ON countries USING gin (name gin_trgm_ops);
 
-CREATE OR REPLACE FUNCTION find_photos_by_country(
+CREATE OR REPLACE FUNCTION find_country_geometry_by_name(
     country_query TEXT
 )
-RETURNS SETOF photos AS $$
+RETURNS GEOMETRY AS $$
 DECLARE
     country_geom GEOMETRY;
 BEGIN
@@ -26,12 +26,7 @@ BEGIN
         LIMIT 1;
     END IF;
 
-    -- Return photos if we found a match
-    IF country_geom IS NOT NULL THEN
-        RETURN QUERY
-        SELECT *
-        FROM photos
-        WHERE ST_Within(photos.gps_location, country_geom);
-    END IF;
+    -- Return the country geometry (or NULL if not found)
+    RETURN country_geom;
 END;
 $$ LANGUAGE plpgsql;

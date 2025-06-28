@@ -149,9 +149,14 @@ impl PhotoRepository for PgPhotoRepository {
     fn find_by_country(&mut self, country_query: &str) -> Result<Vec<Photo>> {
         let mut conn = self.get_connection()?;
 
-        sql_query("SELECT * FROM find_photos_by_country($1)")
-            .bind::<diesel::sql_types::Text, _>(country_query)
-            .get_results::<Photo>(&mut conn)
-            .map_err(Error::from)
+        sql_query(
+            "SELECT photos.* FROM photos 
+             WHERE ST_Within(photos.gps_location, 
+                 (SELECT find_country_geometry_by_name($1)))
+             AND (SELECT find_country_geometry_by_name($1)) IS NOT NULL",
+        )
+        .bind::<diesel::sql_types::Text, _>(country_query)
+        .get_results::<Photo>(&mut conn)
+        .map_err(Error::from)
     }
 }
