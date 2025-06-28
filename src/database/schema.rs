@@ -5,7 +5,7 @@ diesel::table! {
     use pgvector::sql_types::*;
     use postgis_diesel::sql_types::*;
 
-    photos (path) {
+    photos (id) {
         id -> Int4,
         path -> Text,
         file_name -> Text,

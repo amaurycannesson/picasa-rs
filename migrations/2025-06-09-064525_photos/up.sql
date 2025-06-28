@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS photos (
-    id SERIAL,
+    id SERIAL PRIMARY KEY,
 
     -- Unique file path
-    path TEXT NOT NULL PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
 
     -- File metadata
     file_name TEXT NOT NULL,
