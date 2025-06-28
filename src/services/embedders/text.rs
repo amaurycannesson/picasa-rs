@@ -12,7 +12,6 @@ pub trait TextEmbedder {
 }
 
 pub struct ClipTextEmbedder {
-    config: clip::ClipConfig,
     model: clip::ClipModel,
     tokenizer: Tokenizer,
     device: Device,
@@ -30,7 +29,6 @@ impl ClipTextEmbedder {
             .context("Failed to open tokenizer")?;
         let model = clip::ClipModel::new(vb, &config).context("Failed to load model")?;
         Ok(Self {
-            config,
             model,
             tokenizer,
             device: Device::Cpu,

@@ -3,16 +3,17 @@ use crate::{
     utils::{convert_exif_gps_info_to_postgis_point, system_time_to_naive_datetime},
 };
 use chrono::NaiveDateTime;
-use diesel::{Insertable, Queryable, Selectable};
+use diesel::{Insertable, Queryable, QueryableByName, Selectable};
 use nom_exif::{Exif, ExifTag};
 use pgvector::Vector;
 use postgis_diesel::types::Point;
 use std::path::Path;
 
-#[derive(Debug, Queryable, Selectable, Insertable, Default, Clone)]
+#[derive(Debug, Queryable, Selectable, Insertable, Default, Clone, QueryableByName)]
 #[diesel(table_name = photos)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Photo {
+    pub id: i32,
     pub path: String,
     pub file_name: String,
     pub file_size: i64,
@@ -39,15 +40,35 @@ pub struct PaginatedPaths {
     pub per_page: i64,
 }
 
-#[derive(Debug, Insertable)]
-#[diesel(table_name = photos)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+#[derive(Debug)]
 pub struct PhotoEmbedding {
     pub path: String,
     pub embedding: Option<Vector>,
 }
 
-impl Photo {
+#[derive(Debug, Insertable, Default, Clone)]
+#[diesel(table_name = photos)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct NewPhoto {
+    pub path: String,
+    pub file_name: String,
+    pub file_size: i64,
+    pub created_at: NaiveDateTime,
+    pub modified_at: NaiveDateTime,
+    pub indexed_at: NaiveDateTime,
+    pub hash: Option<String>,
+    pub camera_make: Option<String>,
+    pub camera_model: Option<String>,
+    pub lens_model: Option<String>,
+    pub orientation: Option<i32>,
+    pub date_taken: Option<NaiveDateTime>,
+    pub gps_location: Option<Point>,
+    pub image_width: Option<i32>,
+    pub image_height: Option<i32>,
+    pub embedding: Option<Vector>,
+}
+
+impl NewPhoto {
     pub fn new(path: &Path) -> Self {
         let metadata = path.metadata().unwrap();
         let now = chrono::Local::now().naive_utc();

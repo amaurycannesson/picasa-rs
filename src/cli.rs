@@ -2,10 +2,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use picasa_rs::{
     database,
-    models::{
-        geospatial_search_result::GeospatialSearchResult,
-        semantic_search_result::SemanticSearchResult,
-    },
+    models::{photo::Photo, semantic_search_result::SemanticSearchResult},
     photo_repository::PgPhotoRepository,
     services::{
         embedders::{image::ClipImageEmbedder, text::ClipTextEmbedder},
@@ -97,15 +94,15 @@ impl From<SemanticSearchResult> for SemanticSearchResultRow {
 }
 
 #[derive(Tabled)]
-struct GeospatialSearchResultRow {
+struct PhotoRow {
     #[tabled(rename = "ID")]
     pub id: i32,
     #[tabled(rename = "Path")]
     pub path: String,
 }
 
-impl From<GeospatialSearchResult> for GeospatialSearchResultRow {
-    fn from(result: GeospatialSearchResult) -> Self {
+impl From<Photo> for PhotoRow {
+    fn from(result: Photo) -> Self {
         Self {
             id: result.id,
             path: result.path,
@@ -130,7 +127,7 @@ impl Cli {
             } => {
                 let progress_reporter = progress_reporter::CliProgressReporter::new();
 
-                photo_scanner::scan(
+                let _ = photo_scanner::scan(
                     &root_directory,
                     &mut repo,
                     with_exif,
@@ -175,10 +172,8 @@ impl Cli {
                     let mut geospatial_search_service = GeospatialSearchService::new(repo);
 
                     let results = geospatial_search_service.search(&country_query)?;
-                    let results_table: Vec<GeospatialSearchResultRow> = results
-                        .into_iter()
-                        .map(GeospatialSearchResultRow::from)
-                        .collect();
+                    let results_table: Vec<PhotoRow> =
+                        results.into_iter().map(PhotoRow::from).collect();
                     let results_str = Table::new(results_table).with(Style::rounded()).to_string();
 
                     println!("{}", results_str);

@@ -1,6 +1,4 @@
-use crate::{
-    models::geospatial_search_result::GeospatialSearchResult, photo_repository::PhotoRepository,
-};
+use crate::{models::photo::Photo, photo_repository::PhotoRepository};
 use anyhow::{Context, Result};
 
 pub struct GeospatialSearchService<R: PhotoRepository> {
@@ -12,7 +10,7 @@ impl<R: PhotoRepository> GeospatialSearchService<R> {
         Self { photo_repository }
     }
 
-    pub fn search(&mut self, country_query: &str) -> Result<Vec<GeospatialSearchResult>> {
+    pub fn search(&mut self, country_query: &str) -> Result<Vec<Photo>> {
         self.photo_repository
             .find_by_country(country_query)
             .context("Failed to search by country")

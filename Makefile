@@ -1,4 +1,4 @@
-.PHONY: build-db-image run-db
+.PHONY: build-db-image run-db reset-db run-migrations
 
 ENV_FILE := .env
 
@@ -27,3 +27,13 @@ run-db:
 		--env POSTGRES_USER=$(PICASA_POSTGRES_USER) \
 		--env POSTGRES_PASSWORD=$(PICASA_POSTGRES_PASSWORD) \
 		picasa-db:latest
+
+reset-db:
+	docker stop $(PICASA_POSTGRES_DB)
+	docker rm $(PICASA_POSTGRES_DB)
+	make run-db	
+
+run-migrations:
+	diesel migration run \
+		--database-url postgres://$(PICASA_POSTGRES_USER):$(PICASA_POSTGRES_PASSWORD)@localhost:$(PICASA_POSTGRES_PORT)/$(PICASA_POSTGRES_DB)
+	

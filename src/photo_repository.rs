@@ -1,8 +1,7 @@
 use crate::{
     database::{DbConnection, DbPool, schema},
     models::{
-        geospatial_search_result::GeospatialSearchResult,
-        photo::{PaginatedPaths, Photo, PhotoEmbedding},
+        photo::{NewPhoto, PaginatedPaths, Photo, PhotoEmbedding},
         semantic_search_result::SemanticSearchResult,
     },
 };
@@ -16,7 +15,7 @@ pub trait PhotoRepository {
     fn list_paths_without_embedding(&mut self, page: i64, per_page: i64) -> Result<PaginatedPaths>;
 
     /// Inserts a batch of new photos.
-    fn insert_batch(&mut self, new_photos: Vec<Photo>) -> Result<usize>;
+    fn insert_batch(&mut self, new_photos: Vec<NewPhoto>) -> Result<usize>;
 
     /// Updates embeddings for a batch of photos.
     fn update_embeddings(&mut self, embeddings: Vec<PhotoEmbedding>) -> Result<usize>;
@@ -30,7 +29,7 @@ pub trait PhotoRepository {
     ) -> Result<Vec<SemanticSearchResult>>;
 
     /// Find by country.
-    fn find_by_country(&mut self, country_query: &str) -> Result<Vec<GeospatialSearchResult>>;
+    fn find_by_country(&mut self, country_query: &str) -> Result<Vec<Photo>>;
 }
 
 pub struct PgPhotoRepository {
@@ -75,7 +74,7 @@ impl PhotoRepository for PgPhotoRepository {
         })
     }
 
-    fn insert_batch(&mut self, new_photos: Vec<Photo>) -> Result<usize> {
+    fn insert_batch(&mut self, new_photos: Vec<NewPhoto>) -> Result<usize> {
         let mut conn = self.get_connection()?;
         use diesel::upsert::excluded;
 
@@ -139,12 +138,12 @@ impl PhotoRepository for PgPhotoRepository {
             .map_err(Error::from)
     }
 
-    fn find_by_country(&mut self, country_query: &str) -> Result<Vec<GeospatialSearchResult>> {
+    fn find_by_country(&mut self, country_query: &str) -> Result<Vec<Photo>> {
         let mut conn = self.get_connection()?;
 
         sql_query("SELECT * FROM find_photos_by_country($1)")
             .bind::<diesel::sql_types::Text, _>(country_query)
-            .get_results::<GeospatialSearchResult>(&mut conn)
+            .get_results::<Photo>(&mut conn)
             .map_err(Error::from)
     }
 }

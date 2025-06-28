@@ -3,7 +3,7 @@ use std::io::{BufReader, Read};
 use std::time::Instant;
 
 use crate::utils::progress_reporter::ProgressReporter;
-use crate::{models::photo::Photo, photo_repository::PhotoRepository};
+use crate::{models::photo::NewPhoto, photo_repository::PhotoRepository};
 use anyhow::{Context, Result};
 use nom_exif::{Exif, ExifIter, MediaParser, MediaSource};
 
@@ -16,7 +16,7 @@ pub fn scan(
     progress: &dyn ProgressReporter,
 ) -> Result<usize> {
     let start = Instant::now();
-    let photos: Vec<Photo> = ignore::WalkBuilder::new(path)
+    let photos: Vec<NewPhoto> = ignore::WalkBuilder::new(path)
         .git_ignore(false)
         .build()
         .filter_map(Result::ok)
@@ -29,7 +29,7 @@ pub fn scan(
                 .unwrap_or(false)
         })
         .map(|entry| {
-            let mut new_photo = Photo::new(entry.path());
+            let mut new_photo = NewPhoto::new(entry.path());
 
             if with_hash {
                 if let Ok(hash) = compute_file_hash(&new_photo.path) {

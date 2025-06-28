@@ -2,7 +2,7 @@ use diesel::{PgConnection, QueryDsl, RunQueryDsl, SelectableHelper};
 use pgvector::Vector;
 use picasa_rs::{
     database::schema,
-    models::photo::{Photo, PhotoEmbedding},
+    models::photo::{NewPhoto, Photo, PhotoEmbedding},
     photo_repository::{PgPhotoRepository, PhotoRepository},
 };
 use serial_test::serial;
@@ -24,11 +24,11 @@ fn test_should_insert_batch() {
     let mut conn = pool.get().unwrap();
 
     let photos = vec![
-        Photo {
+        NewPhoto {
             path: "path1".to_string(),
             ..Default::default()
         },
-        Photo {
+        NewPhoto {
             path: "path2".to_string(),
             ..Default::default()
         },
@@ -50,7 +50,7 @@ fn test_should_handle_insert_conflicts_with_upsert() {
     let pool = get_pool();
     let mut conn = pool.get().unwrap();
 
-    let original_photo = Photo {
+    let original_photo = NewPhoto {
         path: "test/photo.jpg".to_string(),
         file_name: "photo.jpg".to_string(),
         file_size: 1000,
@@ -66,7 +66,7 @@ fn test_should_handle_insert_conflicts_with_upsert() {
 
     assert_eq!(count, 1);
 
-    let updated_photo = Photo {
+    let updated_photo = NewPhoto {
         path: "test/photo.jpg".to_string(),
         file_name: "photo.jpg".to_string(),
         file_size: 2000,
@@ -103,7 +103,7 @@ fn test_should_preserve_embeddings_on_conflict() {
     let mut conn = pool.get().unwrap();
 
     let embedding_vector = Vector::from(vec![0.1_f32; 512]);
-    let original_photo = Photo {
+    let original_photo = NewPhoto {
         path: "test/photo_with_embedding.jpg".to_string(),
         embedding: Some(embedding_vector.clone()),
         ..Default::default()
@@ -113,7 +113,7 @@ fn test_should_preserve_embeddings_on_conflict() {
     repo.insert_batch(vec![original_photo])
         .expect("Failed to insert original photo");
 
-    let updated_photo = Photo {
+    let updated_photo = NewPhoto {
         path: "test/photo_with_embedding.jpg".to_string(),
         embedding: None,
         ..Default::default()
@@ -140,7 +140,7 @@ fn test_should_clear_embedding_on_hash_change() {
     let mut conn = pool.get().unwrap();
 
     let embedding_vector = Vector::from(vec![0.1_f32; 512]);
-    let original_photo = Photo {
+    let original_photo = NewPhoto {
         path: "test/photo_with_embedding.jpg".to_string(),
         hash: Some("original_hash".to_string()),
         embedding: Some(embedding_vector.clone()),
@@ -151,7 +151,7 @@ fn test_should_clear_embedding_on_hash_change() {
     repo.insert_batch(vec![original_photo])
         .expect("Failed to insert original photo");
 
-    let updated_photo = Photo {
+    let updated_photo = NewPhoto {
         path: "test/photo_with_embedding.jpg".to_string(),
         hash: Some("new_hash".to_string()),
         embedding: Some(embedding_vector.clone()),
@@ -173,11 +173,11 @@ fn test_should_list_paths_without_embedding() {
     let mut conn = pool.get().unwrap();
 
     let photos = vec![
-        Photo {
+        NewPhoto {
             path: "path1".to_string(),
             ..Default::default()
         },
-        Photo {
+        NewPhoto {
             path: "path2".to_string(),
             embedding: Some(Vector::from(vec![0.1_f32; 512])),
             ..Default::default()
@@ -202,7 +202,7 @@ fn test_should_update_embeddings() {
     let pool = get_pool();
     let mut conn = pool.get().unwrap();
 
-    let photo = Photo {
+    let photo = NewPhoto {
         path: "test/photo.jpg".to_string(),
         file_name: "photo.jpg".to_string(),
         ..Default::default()

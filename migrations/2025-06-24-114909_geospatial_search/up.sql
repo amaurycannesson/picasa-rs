@@ -3,10 +3,7 @@ CREATE INDEX countries_name_trgm_idx ON countries USING gin (name gin_trgm_ops);
 CREATE OR REPLACE FUNCTION find_photos_by_country(
     country_query TEXT
 )
-RETURNS TABLE(
-    id INTEGER,
-    path TEXT
-) AS $$
+RETURNS SETOF photos AS $$
 DECLARE
     country_geom GEOMETRY;
 BEGIN
@@ -32,9 +29,7 @@ BEGIN
     -- Return photos if we found a match
     IF country_geom IS NOT NULL THEN
         RETURN QUERY
-        SELECT 
-            photos.id,
-            photos.path
+        SELECT *
         FROM photos
         WHERE ST_Within(photos.gps_location, country_geom);
     END IF;
