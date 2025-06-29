@@ -1,4 +1,4 @@
-use diesel::{PgConnection, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{PgConnection, QueryDsl, RunQueryDsl, SelectableHelper, connection::SimpleConnection};
 use pgvector::Vector;
 use picasa_rs::{
     database::schema,
@@ -229,5 +229,32 @@ fn test_should_update_embeddings() {
     assert_eq!(
         photos[0].embedding.as_ref().unwrap().as_slice(),
         embedding_vector.as_slice()
+    );
+}
+
+#[test]
+#[serial]
+fn test_should_find_photo_by_city() {
+    use std::fs;
+
+    let pool = get_pool();
+    let mut conn = pool.get().unwrap();
+
+    let sql =
+        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
+    conn.batch_execute(&sql)
+        .expect("Failed to execute SQL script");
+
+    let mut repo = PgPhotoRepository::new(pool);
+
+    let photos = repo
+        .find_by_city("Ho chi minh", Some(10000))
+        .expect("Failed to find photos by city");
+
+    assert_eq!(photos.len(), 2);
+    assert_eq!(photos[0].path, "tests/data/images/sub/desk_vietnam.heic");
+    assert_eq!(
+        photos[1].path,
+        "tests/data/images/sub/sub/building_vietnam.jpg"
     );
 }

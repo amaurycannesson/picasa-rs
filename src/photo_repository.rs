@@ -30,6 +30,9 @@ pub trait PhotoRepository {
 
     /// Find by country.
     fn find_by_country(&mut self, country_query: &str) -> Result<Vec<Photo>>;
+
+    /// Find by city.
+    fn find_by_city(&mut self, city_query: &str, radius: Option<i32>) -> Result<Vec<Photo>>;
 }
 
 pub struct PgPhotoRepository {
@@ -157,6 +160,24 @@ impl PhotoRepository for PgPhotoRepository {
              AND (SELECT find_country_geometry_by_name($1)) IS NOT NULL",
         )
         .bind::<diesel::sql_types::Text, _>(country_query)
+        .get_results::<Photo>(&mut conn)
+        .map_err(Error::from)
+    }
+
+    fn find_by_city(&mut self, city_query: &str, radius: Option<i32>) -> Result<Vec<Photo>> {
+        let mut conn = self.get_connection()?;
+
+        sql_query(
+            "SELECT photos.* FROM photos 
+             WHERE ST_DWithin(
+                 ST_Transform(photos.gps_location, 3857), 
+                 ST_Transform((SELECT find_city_geometry_by_name($1)), 3857),
+                 $2
+             )
+             AND (SELECT find_city_geometry_by_name($1)) IS NOT NULL",
+        )
+        .bind::<diesel::sql_types::Text, _>(city_query)
+        .bind::<diesel::sql_types::Integer, _>(radius.unwrap_or(10000))
         .get_results::<Photo>(&mut conn)
         .map_err(Error::from)
     }
