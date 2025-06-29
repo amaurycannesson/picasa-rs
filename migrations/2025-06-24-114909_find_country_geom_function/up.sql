@@ -1,5 +1,3 @@
-CREATE INDEX countries_name_trgm_idx ON countries USING gin (name gin_trgm_ops);
-
 CREATE OR REPLACE FUNCTION find_country_geometry_by_name(
     country_query TEXT
 )

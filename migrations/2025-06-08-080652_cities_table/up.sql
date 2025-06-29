@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS cities (
+    geonameid INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    asciiname TEXT,
+    alternatenames TEXT,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    feature_class TEXT,
+    feature_code TEXT,
+    country_code TEXT,
+    cc2 TEXT,
+    admin1_code TEXT,
+    admin2_code TEXT,
+    admin3_code TEXT,
+    admin4_code TEXT,
+    population INTEGER,
+    elevation INTEGER,
+    dem INTEGER,
+    timezone TEXT,
+    modification_date TEXT
+);
