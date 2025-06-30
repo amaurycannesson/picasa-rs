@@ -2,14 +2,12 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use picasa_rs::{
     database,
-    models::{photo::Photo, semantic_search_result::SemanticSearchResult},
-    photo_repository::PgPhotoRepository,
+    models::Photo,
+    repositories::{PgGeoRepository, PgPhotoRepository},
     services::{
-        embedders::{image::ClipImageEmbedder, text::ClipTextEmbedder},
-        geospatial_search::GeospatialSearchService,
-        photo_embedder::PhotoEmbedderService,
+        PhotoEmbedderService, PhotoSearchParams, PhotoSearchService,
+        embedders::{ClipImageEmbedder, ClipTextEmbedder},
         photo_scanner,
-        semantic_search::SemanticSearchService,
     },
     utils::progress_reporter,
 };
@@ -42,55 +40,54 @@ enum Commands {
     },
     /// Process embeddings for photos
     Embed,
-    /// Search for photos using semantic search
+    /// Search photos
     Search {
-        #[command(subcommand)]
-        search_command: SearchCommands,
-    },
-}
-
-#[derive(Subcommand)]
-enum SearchCommands {
-    /// Search for photos using a semantic query
-    Semantic {
         /// The query string to search for
-        #[arg(help = "The semantic query string to search for photos")]
-        query: String,
+        #[arg(long = "text", help = "The semantic query string to search for photos")]
+        text: Option<String>,
 
         /// Optional similarity threshold (default: 0.0)
         #[arg(long = "threshold", help = "Similarity threshold for search results")]
         threshold: Option<f32>,
 
+        /// Filter by country name
+        #[arg(long = "country", help = "Filter photos by country name")]
+        country: Option<String>,
+
+        /// Filter by city name
+        #[arg(long = "city", help = "Filter photos by city name")]
+        city: Option<String>,
+
+        /// Filter photos from this date onwards (ISO 8601 format)
+        #[arg(
+            long = "date-from",
+            help = "Filter photos from this date onwards (e.g., 2023-01-01T00:00:00Z)"
+        )]
+        date_from: Option<String>,
+
+        /// Filter photos up to this date (ISO 8601 format)
+        #[arg(
+            long = "date-to",
+            help = "Filter photos up to this date (e.g., 2023-12-31T23:59:59Z)"
+        )]
+        date_to: Option<String>,
+
+        /// Page number for pagination (default: 1)
+        #[arg(
+            long = "page",
+            help = "Page number for pagination",
+            default_value = "1"
+        )]
+        page: u32,
+
         /// Optional result limit (default: 10)
-        #[arg(long = "limit", help = "Maximum number of results to return")]
-        limit: Option<usize>,
+        #[arg(
+            long = "per_page",
+            help = "Maximum number of results per page",
+            default_value = "10"
+        )]
+        per_page: u32,
     },
-    /// Search for photos by country
-    Geospatial {
-        /// The country name to search for
-        #[arg(help = "The country name to search for photos")]
-        country_query: String,
-    },
-}
-
-#[derive(Tabled)]
-struct SemanticSearchResultRow {
-    #[tabled(rename = "ID")]
-    pub id: i32,
-    #[tabled(rename = "Path")]
-    pub path: String,
-    #[tabled(rename = "Similarity")]
-    pub similarity: f32,
-}
-
-impl From<SemanticSearchResult> for SemanticSearchResultRow {
-    fn from(result: SemanticSearchResult) -> Self {
-        Self {
-            id: result.photo.id,
-            path: result.photo.path,
-            similarity: result.similarity,
-        }
-    }
 }
 
 #[derive(Tabled)]
@@ -117,7 +114,9 @@ impl Cli {
 
     pub fn run(self) -> Result<()> {
         let pool = database::create_pool();
-        let mut repo = PgPhotoRepository::new(pool);
+
+        let mut photo_repository = PgPhotoRepository::new(pool.clone());
+        let geo_repository = PgGeoRepository::new(pool);
 
         match self.command {
             Commands::Scan {
@@ -129,7 +128,7 @@ impl Cli {
 
                 let _ = photo_scanner::scan(
                     &root_directory,
-                    &mut repo,
+                    &mut photo_repository,
                     with_exif,
                     with_hash,
                     &progress_reporter,
@@ -141,46 +140,62 @@ impl Cli {
                 let progress_reporter = progress_reporter::CliProgressReporter::new();
                 let image_embedder = ClipImageEmbedder::new()?;
                 let mut photo_embedder =
-                    PhotoEmbedderService::new(repo, image_embedder, progress_reporter);
+                    PhotoEmbedderService::new(photo_repository, image_embedder, progress_reporter);
 
                 photo_embedder.embed()?;
 
                 Ok(())
             }
-            Commands::Search { search_command } => match search_command {
-                SearchCommands::Semantic {
-                    query,
+            Commands::Search {
+                text,
+                threshold,
+                country,
+                city,
+                date_from,
+                date_to,
+                page,
+                per_page,
+            } => {
+                let text_embedder = ClipTextEmbedder::new()?;
+                let mut photo_search =
+                    PhotoSearchService::new(photo_repository, geo_repository, text_embedder);
+
+                let search_params = PhotoSearchParams {
+                    text,
                     threshold,
-                    limit,
-                } => {
-                    let text_embedder = ClipTextEmbedder::new()?;
-                    let mut semantic_search_service =
-                        SemanticSearchService::new(repo, text_embedder);
+                    country,
+                    city,
+                    date_from,
+                    date_to,
+                    page,
+                    per_page,
+                };
 
-                    let results = semantic_search_service.search(&query, threshold, limit)?;
-                    let results_table: Vec<SemanticSearchResultRow> = results
-                        .into_iter()
-                        .map(SemanticSearchResultRow::from)
-                        .collect();
-                    let results_str = Table::new(results_table).with(Style::rounded()).to_string();
+                let result = photo_search.search(search_params)?;
 
-                    println!("{}", results_str);
+                if result.photos.is_empty() {
+                    println!("No photos found matching the search criteria.");
+                } else {
+                    let photo_rows: Vec<PhotoRow> =
+                        result.photos.into_iter().map(|p| p.into()).collect();
+                    let results_count = photo_rows.len();
 
-                    Ok(())
+                    let mut table = Table::new(photo_rows);
+                    table.with(Style::rounded());
+                    println!("{}", table);
+
+                    let current_page = page;
+                    let total_photos = result.total;
+                    let total_pages = (total_photos as f64 / per_page as f64).ceil() as u32;
+
+                    println!(
+                        "\nPage {} of {} (showing {} photos, {} total)",
+                        current_page, total_pages, results_count, total_photos
+                    );
                 }
-                SearchCommands::Geospatial { country_query } => {
-                    let mut geospatial_search_service = GeospatialSearchService::new(repo);
 
-                    let results = geospatial_search_service.search(&country_query)?;
-                    let results_table: Vec<PhotoRow> =
-                        results.into_iter().map(PhotoRow::from).collect();
-                    let results_str = Table::new(results_table).with(Style::rounded()).to_string();
-
-                    println!("{}", results_str);
-
-                    Ok(())
-                }
-            },
+                Ok(())
+            }
         }
     }
 }

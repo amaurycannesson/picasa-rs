@@ -34,6 +34,55 @@ diesel::table! {
     use pgvector::sql_types::*;
     use postgis_diesel::sql_types::*;
 
+    countries (gid) {
+        gid -> Int4,
+        #[max_length = 29]
+        name -> Nullable<Varchar>,
+        #[max_length = 36]
+        name_long -> Nullable<Varchar>,
+        #[max_length = 52]
+        formal_en -> Nullable<Varchar>,
+        #[max_length = 35]
+        formal_fr -> Nullable<Varchar>,
+        pop_est -> Nullable<Float8>,
+        pop_rank -> Nullable<Int2>,
+        pop_year -> Nullable<Int2>,
+        gdp_md -> Nullable<Int4>,
+        gdp_year -> Nullable<Int2>,
+        #[max_length = 26]
+        economy -> Nullable<Varchar>,
+        #[max_length = 23]
+        income_grp -> Nullable<Varchar>,
+        #[max_length = 5]
+        iso_a2 -> Nullable<Varchar>,
+        #[max_length = 3]
+        iso_a3 -> Nullable<Varchar>,
+        #[max_length = 3]
+        iso_n3 -> Nullable<Varchar>,
+        #[max_length = 3]
+        adm0_a3_id -> Nullable<Varchar>,
+        #[max_length = 23]
+        continent -> Nullable<Varchar>,
+        #[max_length = 10]
+        region_un -> Nullable<Varchar>,
+        #[max_length = 25]
+        subregion -> Nullable<Varchar>,
+        #[max_length = 26]
+        region_wb -> Nullable<Varchar>,
+        name_len -> Nullable<Int2>,
+        long_len -> Nullable<Int2>,
+        abbrev_len -> Nullable<Int2>,
+        #[max_length = 8]
+        wikidataid -> Nullable<Varchar>,
+        geom -> Nullable<Geometry>,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+    use pgvector::sql_types::*;
+    use postgis_diesel::sql_types::*;
+
     photos (id) {
         id -> Int4,
         path -> Text,
@@ -53,6 +102,8 @@ diesel::table! {
         image_width -> Nullable<Int4>,
         image_height -> Nullable<Int4>,
         embedding -> Nullable<Vector>,
+        country_id -> Nullable<Int4>,
+        city_id -> Nullable<Int4>,
     }
 }
 
@@ -73,8 +124,12 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(photos -> cities (city_id));
+diesel::joinable!(photos -> countries (country_id));
+
 diesel::allow_tables_to_appear_in_same_query!(
     cities,
+    countries,
     photos,
     spatial_ref_sys,
 );

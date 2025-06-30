@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use picasa_rs::{
-    models::photo::NewPhoto,
+    models::new_photo::NewPhoto,
     utils::{compute_file_hash, extract_exif},
 };
 

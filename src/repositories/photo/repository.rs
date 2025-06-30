@@ -1,12 +1,15 @@
 use crate::{
     database::{DbConnection, DbPool, schema},
-    models::{
-        photo::{NewPhoto, PaginatedPaths, Photo, PhotoEmbedding},
-        semantic_search_result::SemanticSearchResult,
-    },
+    models::{NewPhoto, PaginatedPaths, PaginatedPhotos, PaginationFilter, Photo, PhotoEmbedding},
+    repositories::PhotoFindFilters,
+    utils::serialize_float_array,
 };
 use anyhow::{Context, Error, Result};
-use diesel::{prelude::*, sql_query};
+use diesel::{
+    dsl::sql,
+    prelude::*,
+    sql_types::{Bool, Float},
+};
 use mockall::automock;
 
 #[automock]
@@ -20,19 +23,12 @@ pub trait PhotoRepository {
     /// Updates embeddings for a batch of photos.
     fn update_embeddings(&mut self, embeddings: Vec<PhotoEmbedding>) -> Result<usize>;
 
-    /// Find by text query.
-    fn find_by_text(
+    /// Find photos with filters, pagination, and sorting
+    fn find(
         &mut self,
-        text_embedding: Vec<f32>,
-        threshold: Option<f32>,
-        limit: Option<usize>,
-    ) -> Result<Vec<SemanticSearchResult>>;
-
-    /// Find by country.
-    fn find_by_country(&mut self, country_query: &str) -> Result<Vec<Photo>>;
-
-    /// Find by city.
-    fn find_by_city(&mut self, city_query: &str, radius: Option<i32>) -> Result<Vec<Photo>>;
+        pagination: PaginationFilter,
+        filters: PhotoFindFilters,
+    ) -> Result<PaginatedPhotos>;
 }
 
 pub struct PgPhotoRepository {
@@ -52,7 +48,100 @@ impl PgPhotoRepository {
     }
 }
 
+impl PgPhotoRepository {
+    fn build_semantic_filter_sql(text_embedding: &[f32], threshold: f32) -> String {
+        format!(
+            "(1 - (photos.embedding <=> '{}'::vector)) > {}",
+            serialize_float_array(text_embedding),
+            threshold
+        )
+    }
+
+    fn build_semantic_order_sql(text_embedding: &[f32]) -> String {
+        format!(
+            "1 - (photos.embedding <=> '{}'::vector)",
+            serialize_float_array(text_embedding)
+        )
+    }
+}
+
 impl PhotoRepository for PgPhotoRepository {
+    fn find(
+        &mut self,
+        pagination: PaginationFilter,
+        filters: PhotoFindFilters,
+    ) -> Result<PaginatedPhotos> {
+        let mut conn = self.get_connection()?;
+        let offset = (pagination.page - 1) * pagination.per_page;
+
+        // Build base count query
+        let mut count_query = schema::photos::table
+            .select(diesel::dsl::count_star())
+            .into_boxed();
+
+        // Build base select query
+        let mut select_query = schema::photos::table
+            .select(Photo::as_select())
+            .into_boxed();
+
+        // Apply semantic filter if present
+        if let Some(ref text_embedding) = filters.text_embedding {
+            let threshold = filters.threshold.unwrap_or(0.0);
+            let semantic_filter_sql = Self::build_semantic_filter_sql(text_embedding, threshold);
+
+            count_query = count_query.filter(sql::<Bool>(&semantic_filter_sql));
+            select_query = select_query.filter(sql::<Bool>(&semantic_filter_sql));
+
+            // Add semantic ordering
+            let order_sql = Self::build_semantic_order_sql(text_embedding);
+            select_query = select_query.order(sql::<Float>(&order_sql).desc());
+        }
+
+        // Apply country filter if present
+        if let Some(country_id) = filters.country_id {
+            count_query = count_query.filter(schema::photos::country_id.eq(country_id));
+            select_query = select_query.filter(schema::photos::country_id.eq(country_id));
+        }
+
+        // Apply city filter if present
+        if let Some(city_id) = filters.city_id {
+            count_query = count_query.filter(schema::photos::city_id.eq(city_id));
+            select_query = select_query.filter(schema::photos::city_id.eq(city_id));
+        }
+
+        // Apply date filters
+        if let Some(date_from) = filters.date_from {
+            count_query = count_query.filter(schema::photos::date_taken_utc.ge(date_from));
+            select_query = select_query.filter(schema::photos::date_taken_utc.ge(date_from));
+        }
+
+        if let Some(date_to) = filters.date_to {
+            count_query = count_query.filter(schema::photos::date_taken_utc.le(date_to));
+            select_query = select_query.filter(schema::photos::date_taken_utc.le(date_to));
+        }
+
+        // Get total count of filtered photos
+        let total: i64 = count_query.first(&mut conn)?;
+
+        // Get paginated photos with consistent ordering
+        let photos = select_query
+            .then_order_by(schema::photos::id.asc())
+            .limit(pagination.per_page)
+            .offset(offset)
+            .load(&mut conn)?;
+
+        // Calculate total pages (ceiling division)
+        let total_pages = (total + pagination.per_page - 1) / pagination.per_page;
+
+        Ok(PaginatedPhotos {
+            photos,
+            total,
+            page: pagination.page,
+            per_page: pagination.per_page,
+            total_pages,
+        })
+    }
+
     fn list_paths_without_embedding(&mut self, page: i64, per_page: i64) -> Result<PaginatedPaths> {
         let mut conn = self.get_connection()?;
         let offset = (page - 1) * per_page;
@@ -116,69 +205,5 @@ impl PhotoRepository for PgPhotoRepository {
             total_updated += updated;
         }
         Ok(total_updated)
-    }
-
-    fn find_by_text(
-        &mut self,
-        text_embedding: Vec<f32>,
-        threshold: Option<f32>,
-        limit: Option<usize>,
-    ) -> Result<Vec<SemanticSearchResult>> {
-        let mut conn = self.get_connection()?;
-        let embedding_str = format!(
-            "[{}]",
-            text_embedding
-                .iter()
-                .map(|f| f.to_string())
-                .collect::<Vec<_>>()
-                .join(",")
-        );
-
-        sql_query(
-            "SELECT
-                photos.*,
-                (1 - (photos.embedding <=> $1::vector))::float4 as similarity
-            FROM photos
-            WHERE (1 - (photos.embedding <=> $1::vector)) > $2
-            ORDER BY similarity DESC
-            LIMIT $3",
-        )
-        .bind::<diesel::sql_types::Text, _>(embedding_str)
-        .bind::<diesel::sql_types::Float, _>(threshold.unwrap_or(0.0))
-        .bind::<diesel::sql_types::Integer, _>(limit.unwrap_or(10) as i32)
-        .get_results::<SemanticSearchResult>(&mut conn)
-        .map_err(Error::from)
-    }
-
-    fn find_by_country(&mut self, country_query: &str) -> Result<Vec<Photo>> {
-        let mut conn = self.get_connection()?;
-
-        sql_query(
-            "SELECT photos.* FROM photos 
-             WHERE ST_Within(photos.gps_location, 
-                 (SELECT find_country_geometry_by_name($1)))
-             AND (SELECT find_country_geometry_by_name($1)) IS NOT NULL",
-        )
-        .bind::<diesel::sql_types::Text, _>(country_query)
-        .get_results::<Photo>(&mut conn)
-        .map_err(Error::from)
-    }
-
-    fn find_by_city(&mut self, city_query: &str, radius: Option<i32>) -> Result<Vec<Photo>> {
-        let mut conn = self.get_connection()?;
-
-        sql_query(
-            "SELECT photos.* FROM photos 
-             WHERE ST_DWithin(
-                 ST_Transform(photos.gps_location, 3857), 
-                 ST_Transform((SELECT find_city_geometry_by_name($1)), 3857),
-                 $2
-             )
-             AND (SELECT find_city_geometry_by_name($1)) IS NOT NULL",
-        )
-        .bind::<diesel::sql_types::Text, _>(city_query)
-        .bind::<diesel::sql_types::Integer, _>(radius.unwrap_or(10000))
-        .get_results::<Photo>(&mut conn)
-        .map_err(Error::from)
     }
 }

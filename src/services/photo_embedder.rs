@@ -3,7 +3,7 @@ use pgvector::Vector;
 use std::time::Instant;
 
 use crate::{
-    models::photo::PhotoEmbedding, photo_repository::PhotoRepository,
+    models::PhotoEmbedding, repositories::PhotoRepository,
     services::embedders::image::ImageEmbedder, utils::progress_reporter::ProgressReporter,
 };
 
@@ -93,7 +93,7 @@ impl<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> PhotoEmbedderSer
 mod tests {
     use super::*;
     use crate::{
-        models::photo::PaginatedPaths, photo_repository::MockPhotoRepository,
+        models::photo::PaginatedPaths, repositories::photo::repository::MockPhotoRepository,
         services::embedders::image::MockImageEmbedder,
         utils::progress_reporter::NoOpProgressReporter,
     };

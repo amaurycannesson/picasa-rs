@@ -26,7 +26,11 @@ CREATE TABLE IF NOT EXISTS photos (
     image_height INTEGER,
 
     -- CLIP embedding
-    embedding VECTOR(512)
+    embedding VECTOR(512),
+
+    -- Foreign keys
+    country_id INTEGER REFERENCES countries(gid),
+    city_id INTEGER REFERENCES cities(geonameid)
 );
 
 CREATE INDEX IF NOT EXISTS photos_embedding_cosine_idx ON photos USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);

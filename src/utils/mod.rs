@@ -77,6 +77,24 @@ pub fn extract_exif<P: AsRef<Path>>(path: P) -> Option<Exif> {
     Some(iter.into())
 }
 
+/// Serializes a float array into PostgreSQL array literal format.
+///
+/// # Example
+/// ```
+/// let nums = vec![1.0, 2.5, 3.0];
+/// assert_eq!(serialize_float_array(&nums), "[1,2.5,3]");
+/// ```
+pub fn serialize_float_array(float_array: &[f32]) -> String {
+    format!(
+        "[{}]",
+        float_array
+            .iter()
+            .map(|f| f.to_string())
+            .collect::<Vec<_>>()
+            .join(",")
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,5 +139,12 @@ mod tests {
         assert_eq!(point.x, -79.98222222222222);
         assert_eq!(point.y, 40.44611111111111);
         assert_eq!(point.srid, Some(4326));
+    }
+
+    #[test]
+    fn test_serialize_float_array() {
+        assert_eq!(serialize_float_array(&[1.0, 2.0, 3.0]), "[1,2,3]");
+        assert_eq!(serialize_float_array(&[]), "[]");
+        assert_eq!(serialize_float_array(&[42.5]), "[42.5]");
     }
 }

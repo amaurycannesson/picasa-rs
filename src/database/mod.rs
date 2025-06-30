@@ -4,6 +4,7 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use std::env;
 
 pub mod schema;
+pub mod sql_functions;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 

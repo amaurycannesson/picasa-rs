@@ -1,7 +1,8 @@
 use std::time::Instant;
 
+use crate::models::NewPhoto;
+use crate::repositories::PhotoRepository;
 use crate::utils::{self, progress_reporter::ProgressReporter};
-use crate::{models::photo::NewPhoto, photo_repository::PhotoRepository};
 use anyhow::{Context, Result};
 
 /// Scan photos in the given path and insert them into the repository.
@@ -66,7 +67,9 @@ pub fn scan(
 
 #[cfg(test)]
 mod tests {
-    use crate::{photo_repository, utils::progress_reporter::NoOpProgressReporter};
+    use crate::{
+        repositories::MockPhotoRepository, utils::progress_reporter::NoOpProgressReporter,
+    };
 
     use super::*;
     use std::fs::File;
@@ -87,7 +90,7 @@ mod tests {
         File::create(temp_path.join("subdir/photo5.jpg")).unwrap();
         File::create(temp_path.join("subdir/not_a_photo2.txt")).unwrap();
 
-        let mut mock = photo_repository::MockPhotoRepository::new();
+        let mut mock = MockPhotoRepository::new();
         mock.expect_insert_batch()
             .returning(|new_photos| Ok(new_photos.len()));
 

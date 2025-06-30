@@ -1,9 +1,13 @@
+use chrono::{DateTime, NaiveDate, Utc};
 use diesel::{PgConnection, QueryDsl, RunQueryDsl, SelectableHelper, connection::SimpleConnection};
 use pgvector::Vector;
 use picasa_rs::{
     database::schema,
-    models::photo::{NewPhoto, Photo, PhotoEmbedding},
-    photo_repository::{PgPhotoRepository, PhotoRepository},
+    models::{
+        NewPhoto, PaginationFilter, {Photo, PhotoEmbedding},
+    },
+    repositories::{PgPhotoRepository, PhotoFindFilters, PhotoRepository},
+    services::embedders::text::{ClipTextEmbedder, TextEmbedder},
 };
 use serial_test::serial;
 
@@ -38,10 +42,11 @@ fn test_should_insert_batch() {
     let count = repo.insert_batch(photos).expect("Failed to insert photos");
 
     let photos = load_photos(&mut conn);
+    let paths = vec![photos[0].path.to_string(), photos[1].path.to_string()];
 
     assert_eq!(count, 2);
-    assert_eq!(photos[0].path, "path1");
-    assert_eq!(photos[1].path, "path2");
+    assert!(paths.contains(&"path1".to_string()));
+    assert!(paths.contains(&"path2".to_string()));
 }
 
 #[test]
@@ -234,7 +239,42 @@ fn test_should_update_embeddings() {
 
 #[test]
 #[serial]
-fn test_should_find_photo_by_city() {
+fn test_should_find_photos_with_pagination() {
+    use std::fs;
+
+    let pool = get_pool();
+    let mut conn = pool.get().unwrap();
+
+    // Load test data
+    let sql =
+        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
+    conn.batch_execute(&sql)
+        .expect("Failed to execute SQL script");
+
+    let mut repo = PgPhotoRepository::new(pool);
+
+    // Create search filters with just pagination options
+    let filters = PaginationFilter {
+        page: 1,
+        per_page: 2,
+    };
+
+    // Search photos with pagination
+    let result = repo
+        .find(filters, PhotoFindFilters::default())
+        .expect("Failed to search photos");
+
+    // Verify pagination works correctly
+    assert_eq!(result.photos.len(), 2); // Should return 2 photos per page
+    assert_eq!(result.page, 1); // Should be on page 1
+    assert_eq!(result.per_page, 2); // Should have 2 items per page
+    assert!(result.total > 0); // Should have some total count
+    assert!(result.total_pages > 0); // Should have some total pages
+}
+
+#[test]
+#[serial]
+fn test_should_find_photos_with_pagination_second_page() {
     use std::fs;
 
     let pool = get_pool();
@@ -247,14 +287,261 @@ fn test_should_find_photo_by_city() {
 
     let mut repo = PgPhotoRepository::new(pool);
 
-    let photos = repo
-        .find_by_city("Ho chi minh", Some(10000))
-        .expect("Failed to find photos by city");
+    let page2_filters = PaginationFilter {
+        page: 2,
+        per_page: 1,
+    };
 
-    assert_eq!(photos.len(), 2);
-    assert_eq!(photos[0].path, "tests/data/images/sub/desk_vietnam.heic");
+    let page2_result = repo
+        .find(page2_filters, PhotoFindFilters::default())
+        .expect("Failed to search photos");
+
+    assert_eq!(page2_result.photos.len(), 1);
+    assert_eq!(page2_result.page, 2);
+    assert_eq!(page2_result.per_page, 1);
+    assert!(page2_result.total > 1);
+    assert!(page2_result.total_pages > 1);
+
+    let page1_filters = PaginationFilter {
+        page: 1,
+        per_page: 1,
+    };
+
+    let page1_result = repo
+        .find(page1_filters, PhotoFindFilters::default())
+        .expect("Failed to search photos for page 1");
+
+    assert_ne!(
+        page1_result.photos[0].path, page2_result.photos[0].path,
+        "Photos on different pages should be different"
+    );
+}
+
+#[test]
+#[serial]
+fn test_should_find_photos_by_date_range() {
+    use std::fs;
+
+    let pool = get_pool();
+    let mut conn = pool.get().unwrap();
+
+    let sql =
+        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
+    conn.batch_execute(&sql)
+        .expect("Failed to execute SQL script");
+
+    let mut repo = PgPhotoRepository::new(pool);
+
+    let date_from = NaiveDate::from_ymd_opt(2025, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+    let date_to = NaiveDate::from_ymd_opt(2025, 12, 31)
+        .unwrap()
+        .and_hms_opt(23, 59, 59)
+        .unwrap();
+
+    let filters = PhotoFindFilters {
+        date_from: Some(DateTime::<Utc>::from_naive_utc_and_offset(date_from, Utc)),
+        date_to: Some(DateTime::<Utc>::from_naive_utc_and_offset(date_to, Utc)),
+        ..Default::default()
+    };
+
+    let result = repo
+        .find(
+            PaginationFilter {
+                page: 1,
+                per_page: 10,
+            },
+            filters,
+        )
+        .expect("Failed to search photos by date range");
+
+    assert!(!result.photos.is_empty(), "Should find photos from 2025");
+    for photo in &result.photos {
+        if let Some(date_taken) = photo.date_taken_utc {
+            assert!(
+                date_taken >= DateTime::<Utc>::from_naive_utc_and_offset(date_from, Utc)
+                    && date_taken <= DateTime::<Utc>::from_naive_utc_and_offset(date_to, Utc),
+                "Photo date {} should be within the specified range",
+                date_taken
+            );
+        }
+    }
+}
+
+#[test]
+#[serial]
+fn test_should_find_photos_by_semantic_query() {
+    use std::fs;
+
+    let pool = get_pool();
+    let mut conn = pool.get().unwrap();
+
+    let sql =
+        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
+    conn.batch_execute(&sql)
+        .expect("Failed to execute SQL script");
+
+    let mut repo = PgPhotoRepository::new(pool);
+    let text_embedder = ClipTextEmbedder::new().expect("Failed to create embedder");
+    let text_embedding = text_embedder
+        .embed("white building")
+        .expect("Failed to create embedding");
+    let filters = PhotoFindFilters {
+        text_embedding: Some(text_embedding),
+        threshold: Some(0.0),
+        ..Default::default()
+    };
+
+    let result = repo
+        .find(
+            PaginationFilter {
+                page: 1,
+                per_page: 10,
+            },
+            filters,
+        )
+        .expect("Failed to search photos by semantic query");
+
+    assert!(result.photos[0].path.contains("building_vietnam"));
+}
+
+#[test]
+#[serial]
+fn test_should_find_photos_by_country() {
+    use std::fs;
+
+    let pool = get_pool();
+    let mut conn = pool.get().unwrap();
+
+    let sql =
+        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
+    conn.batch_execute(&sql)
+        .expect("Failed to execute SQL script");
+
+    let mut repo = PgPhotoRepository::new(pool);
+
+    let filters = PhotoFindFilters {
+        country_id: Some(56),
+        ..Default::default()
+    };
+
+    let result = repo
+        .find(
+            PaginationFilter {
+                page: 1,
+                per_page: 10,
+            },
+            filters,
+        )
+        .expect("Failed to search photos by country");
+
+    assert_eq!(result.photos.len(), 2, "Should find 2 photos from Vietnam");
     assert_eq!(
-        photos[1].path,
+        result.photos[0].path,
+        "tests/data/images/sub/desk_vietnam.heic"
+    );
+    assert_eq!(
+        result.photos[1].path,
+        "tests/data/images/sub/sub/building_vietnam.jpg"
+    );
+}
+
+#[test]
+#[serial]
+fn test_should_find_photos_with_combined_filters() {
+    use std::fs;
+
+    let pool = get_pool();
+    let mut conn = pool.get().unwrap();
+
+    let sql =
+        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
+    conn.batch_execute(&sql)
+        .expect("Failed to execute SQL script");
+
+    let mut repo = PgPhotoRepository::new(pool);
+
+    let date_from = NaiveDate::from_ymd_opt(2025, 3, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+
+    let text_embedder = ClipTextEmbedder::new().expect("Failed to create embedder");
+    let text_embedding = text_embedder
+        .embed("white building")
+        .expect("Failed to create embedding");
+    let filters = PhotoFindFilters {
+        text_embedding: Some(text_embedding),
+        threshold: Some(0.23),
+        country_id: Some(56),
+        date_from: Some(DateTime::<Utc>::from_naive_utc_and_offset(date_from, Utc)),
+        ..Default::default()
+    };
+
+    let result = repo
+        .find(
+            PaginationFilter {
+                page: 1,
+                per_page: 10,
+            },
+            filters,
+        )
+        .expect("Failed to search photos with combined filters");
+
+    assert_eq!(
+        result.photos.len(),
+        1,
+        "Should find 1 photo matching all criteria"
+    );
+    assert_eq!(
+        result.photos[0].path, "tests/data/images/sub/sub/building_vietnam.jpg",
+        "Should find the building photo from Vietnam"
+    );
+}
+
+#[test]
+#[serial]
+fn test_should_find_photos_by_city() {
+    use std::fs;
+
+    let pool = get_pool();
+    let mut conn = pool.get().unwrap();
+
+    let sql =
+        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
+    conn.batch_execute(&sql)
+        .expect("Failed to execute SQL script");
+
+    let mut repo = PgPhotoRepository::new(pool);
+
+    let filters = PhotoFindFilters {
+        city_id: Some(1566083),
+        ..Default::default()
+    };
+
+    let result = repo
+        .find(
+            PaginationFilter {
+                page: 1,
+                per_page: 10,
+            },
+            filters,
+        )
+        .expect("Failed to search photos by country");
+
+    assert_eq!(
+        result.photos.len(),
+        2,
+        "Should find 2 photos from Ho Chi Minh"
+    );
+    assert_eq!(
+        result.photos[0].path,
+        "tests/data/images/sub/desk_vietnam.heic"
+    );
+    assert_eq!(
+        result.photos[1].path,
         "tests/data/images/sub/sub/building_vietnam.jpg"
     );
 }

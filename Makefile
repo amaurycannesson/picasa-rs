@@ -28,10 +28,19 @@ run-db:
 		--env POSTGRES_PASSWORD=$(PICASA_POSTGRES_PASSWORD) \
 		picasa-db:latest
 
-reset-db:
+stop-db:
 	docker stop $(PICASA_POSTGRES_DB)
 	docker rm $(PICASA_POSTGRES_DB)
-	make run-db	
+
+reset-db:
+	make stop-db
+	make run-db
+	@echo "Waiting for database to be ready..."
+	@while ! docker logs $(PICASA_POSTGRES_DB) 2>&1 | grep -q "database system is ready to accept connections"; do \
+		sleep 10; \
+	done
+	@echo "Database is ready, running migrations..."
+	make run-migrations
 
 run-migrations:
 	diesel migration run \
