@@ -83,6 +83,43 @@ diesel::table! {
     use pgvector::sql_types::*;
     use postgis_diesel::sql_types::*;
 
+    faces (id) {
+        id -> Int4,
+        photo_id -> Int4,
+        bbox_x -> Int4,
+        bbox_y -> Int4,
+        bbox_width -> Int4,
+        bbox_height -> Int4,
+        confidence -> Float4,
+        #[max_length = 10]
+        gender -> Nullable<Varchar>,
+        embedding -> Nullable<Vector>,
+        person_id -> Nullable<Int4>,
+        recognition_confidence -> Nullable<Float4>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+    use pgvector::sql_types::*;
+    use postgis_diesel::sql_types::*;
+
+    people (id) {
+        id -> Int4,
+        #[max_length = 255]
+        name -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+    use pgvector::sql_types::*;
+    use postgis_diesel::sql_types::*;
+
     photos (id) {
         id -> Int4,
         path -> Text,
@@ -90,7 +127,6 @@ diesel::table! {
         file_size -> Int8,
         created_at -> Timestamptz,
         modified_at -> Timestamptz,
-        indexed_at -> Timestamptz,
         hash -> Nullable<Text>,
         camera_make -> Nullable<Text>,
         camera_model -> Nullable<Text>,
@@ -102,8 +138,10 @@ diesel::table! {
         image_width -> Nullable<Int4>,
         image_height -> Nullable<Int4>,
         embedding -> Nullable<Vector>,
+        face_detection_completed -> Bool,
         country_id -> Nullable<Int4>,
         city_id -> Nullable<Int4>,
+        indexed_at -> Timestamptz,
     }
 }
 
@@ -124,12 +162,16 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(faces -> people (person_id));
+diesel::joinable!(faces -> photos (photo_id));
 diesel::joinable!(photos -> cities (city_id));
 diesel::joinable!(photos -> countries (country_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     cities,
     countries,
+    faces,
+    people,
     photos,
     spatial_ref_sys,
 );

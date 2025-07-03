@@ -3,9 +3,9 @@ use clap::{Parser, Subcommand};
 use picasa_rs::{
     database,
     models::Photo,
-    repositories::{PgGeoRepository, PgPhotoRepository},
+    repositories::{PgGeoRepository, PgPhotoRepository, face::repository::PgFaceRepository},
     services::{
-        PhotoEmbedderService, PhotoSearchParams, PhotoSearchService,
+        FaceDetectionService, PhotoEmbedderService, PhotoSearchParams, PhotoSearchService,
         embedders::{ClipImageEmbedder, ClipTextEmbedder},
         photo_scanner,
     },
@@ -38,8 +38,9 @@ enum Commands {
         #[arg(long = "with-hash", help = "Enable file hash computation")]
         with_hash: bool,
     },
-    /// Process embeddings for photos
-    Embed,
+    /// Process embeddings for photos and faces
+    #[command(subcommand)]
+    Embed(EmbedCommands),
     /// Search photos
     Search {
         /// The query string to search for
@@ -90,6 +91,14 @@ enum Commands {
     },
 }
 
+#[derive(Subcommand)]
+enum EmbedCommands {
+    /// Generate image embeddings for photos
+    Image,
+    /// Detect and embed faces in photos
+    Face,
+}
+
 #[derive(Tabled)]
 struct PhotoRow {
     #[tabled(rename = "ID")]
@@ -116,7 +125,7 @@ impl Cli {
         let pool = database::create_pool();
 
         let mut photo_repository = PgPhotoRepository::new(pool.clone());
-        let geo_repository = PgGeoRepository::new(pool);
+        let geo_repository = PgGeoRepository::new(pool.clone());
 
         match self.command {
             Commands::Scan {
@@ -136,13 +145,31 @@ impl Cli {
 
                 Ok(())
             }
-            Commands::Embed => {
-                let progress_reporter = progress_reporter::CliProgressReporter::new();
-                let image_embedder = ClipImageEmbedder::new()?;
-                let mut photo_embedder =
-                    PhotoEmbedderService::new(photo_repository, image_embedder, progress_reporter);
+            Commands::Embed(embed_command) => {
+                match embed_command {
+                    EmbedCommands::Image => {
+                        let progress_reporter = progress_reporter::CliProgressReporter::new();
+                        let image_embedder = ClipImageEmbedder::new()?;
+                        let mut photo_embedder = PhotoEmbedderService::new(
+                            photo_repository,
+                            image_embedder,
+                            progress_reporter,
+                        );
 
-                photo_embedder.embed()?;
+                        photo_embedder.embed()?;
+                    }
+                    EmbedCommands::Face => {
+                        let progress_reporter = progress_reporter::CliProgressReporter::new();
+                        let face_repository = PgFaceRepository::new(pool);
+                        let mut face_detection_service = FaceDetectionService::new(
+                            photo_repository,
+                            face_repository,
+                            progress_reporter,
+                        );
+
+                        face_detection_service.detect_faces()?;
+                    }
+                }
 
                 Ok(())
             }
@@ -173,11 +200,11 @@ impl Cli {
 
                 let result = photo_search.search(search_params)?;
 
-                if result.photos.is_empty() {
+                if result.items.is_empty() {
                     println!("No photos found matching the search criteria.");
                 } else {
                     let photo_rows: Vec<PhotoRow> =
-                        result.photos.into_iter().map(|p| p.into()).collect();
+                        result.items.into_iter().map(|p| p.into()).collect();
                     let results_count = photo_rows.len();
 
                     let mut table = Table::new(photo_rows);

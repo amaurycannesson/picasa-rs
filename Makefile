@@ -45,4 +45,6 @@ reset-db:
 run-migrations:
 	diesel migration run \
 		--database-url postgres://$(PICASA_POSTGRES_USER):$(PICASA_POSTGRES_PASSWORD)@localhost:$(PICASA_POSTGRES_PORT)/$(PICASA_POSTGRES_DB)
-	
+
+run-face-detection-web-server:
+	(cd python/face_detection; uv run main.py)

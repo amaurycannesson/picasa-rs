@@ -3,8 +3,10 @@ use pgvector::Vector;
 use std::time::Instant;
 
 use crate::{
-    models::PhotoEmbedding, repositories::PhotoRepository,
-    services::embedders::image::ImageEmbedder, utils::progress_reporter::ProgressReporter,
+    models::{PaginationFilter, UpdatedPhoto},
+    repositories::PhotoRepository,
+    services::embedders::image::ImageEmbedder,
+    utils::progress_reporter::ProgressReporter,
 };
 
 pub struct PhotoEmbedderService<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> {
@@ -33,11 +35,11 @@ impl<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> PhotoEmbedderSer
             // Get the next batch of photos without embeddings
             let paginated_paths = self
                 .photo_repository
-                .list_paths_without_embedding(page, per_page)
+                .list_paths_without_embedding(PaginationFilter { page, per_page })
                 .context("Failed to fetch photos without embeddings")?;
 
             // If no more photos to process, break
-            if paginated_paths.paths.is_empty() {
+            if paginated_paths.items.is_empty() {
                 break;
             }
 
@@ -50,26 +52,28 @@ impl<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> PhotoEmbedderSer
             // Compute embeddings for this batch
             let embeddings_data = self
                 .image_embedder
-                .embed(&paginated_paths.paths)
+                .embed(
+                    &paginated_paths
+                        .items
+                        .iter()
+                        .map(|f| f.path.clone())
+                        .collect(),
+                )
                 .context("Failed to compute embeddings")?;
 
-            // Create PhotoEmbedding structs
-            let photo_embeddings: Vec<PhotoEmbedding> = paginated_paths
-                .paths
-                .iter()
-                .zip(embeddings_data.iter())
-                .map(|(path, embedding_vec)| PhotoEmbedding {
-                    path: path.clone(),
-                    embedding: Some(Vector::from(embedding_vec.clone())),
-                })
-                .collect();
+            for (photo, embedding) in paginated_paths.items.iter().zip(embeddings_data.iter()) {
+                self.photo_repository
+                    .update_one(
+                        photo.id,
+                        UpdatedPhoto {
+                            embedding: Some(Some(Vector::from(embedding.clone()))),
+                            ..Default::default()
+                        },
+                    )
+                    .context("Failed to update embeddings in database")?;
+            }
 
-            // Update embeddings in batch
-            let updated_count = self
-                .photo_repository
-                .update_embeddings(photo_embeddings)
-                .context("Failed to update embeddings in database")?;
-
+            let updated_count = paginated_paths.items.len();
             total_processed += updated_count;
             self.progress_reporter.set_message(format!(
                 "Processed {} photos (batch {}, {} total)",
@@ -93,29 +97,30 @@ impl<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> PhotoEmbedderSer
 mod tests {
     use super::*;
     use crate::{
-        models::photo::PaginatedPaths, repositories::photo::repository::MockPhotoRepository,
+        models::{PaginatedPhotoPaths, PhotoPath},
+        repositories::photo::repository::MockPhotoRepository,
         services::embedders::image::MockImageEmbedder,
         utils::progress_reporter::NoOpProgressReporter,
     };
     use anyhow::anyhow;
-    use mockall::predicate::*;
 
     #[test]
     fn test_process_embeddings_no_photos() {
         let mut photo_repository = MockPhotoRepository::new();
         photo_repository
             .expect_list_paths_without_embedding()
-            .with(eq(1), eq(20))
+            .withf(|f: &PaginationFilter| f.page == 1 && f.per_page == 20)
             .times(1)
-            .returning(|_, _| {
-                Ok(PaginatedPaths {
-                    paths: vec![],
+            .returning(|_| {
+                Ok(PaginatedPhotoPaths {
+                    items: vec![],
                     total: 0,
                     page: 1,
                     per_page: 20,
+                    total_pages: 1,
                 })
             });
-        photo_repository.expect_update_embeddings().times(0);
+        photo_repository.expect_update_one().times(0);
 
         let mut image_embedder = MockImageEmbedder::new();
         image_embedder
@@ -136,9 +141,9 @@ mod tests {
 
         photo_repository
             .expect_list_paths_without_embedding()
-            .with(eq(1), eq(20))
+            .withf(|f: &PaginationFilter| f.page == 1 && f.per_page == 20)
             .times(1)
-            .returning(|_, _| Err(anyhow!("Repository error")));
+            .returning(|_| Err(anyhow!("Repository error")));
 
         let mut image_embedder = MockImageEmbedder::new();
 
@@ -163,28 +168,32 @@ mod tests {
 
         photo_repository
             .expect_list_paths_without_embedding()
-            .with(eq(1), eq(20))
             .times(1)
-            .returning(|_, _| {
-                Ok(PaginatedPaths {
-                    paths: vec!["test.jpg".to_string()],
+            .returning(|_| {
+                Ok(PaginatedPhotoPaths {
+                    items: vec![PhotoPath {
+                        id: 1,
+                        path: "test.jpg".to_string(),
+                    }],
                     total: 1,
                     page: 1,
                     per_page: 20,
+                    total_pages: 1,
                 })
             });
 
         photo_repository
-            .expect_update_embeddings()
+            .expect_update_one()
+            .withf(|id: &i32, _| *id == 1)
             .times(1)
-            .returning(|_| Err(anyhow!("Failed to update embeddings in database")));
+            .returning(|_, __| Err(anyhow!("Failed to update embeddings in database")));
 
         let mut image_embedder = MockImageEmbedder::new();
 
         image_embedder
             .expect_embed()
             .times(1)
-            .returning(|_| Ok(vec![]));
+            .returning(|_| Ok(vec![vec![0.]]));
 
         let mut photo_embedder_service =
             PhotoEmbedderService::new(photo_repository, image_embedder, NoOpProgressReporter);

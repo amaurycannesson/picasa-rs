@@ -1,6 +1,8 @@
 use crate::{
     database::{DbConnection, DbPool, schema},
-    models::{NewPhoto, PaginatedPaths, PaginatedPhotos, PaginationFilter, Photo, PhotoEmbedding},
+    models::{
+        NewPhoto, PaginatedPhotoPaths, PaginatedPhotos, PaginationFilter, Photo, UpdatedPhoto,
+    },
     repositories::PhotoFindFilters,
     utils::serialize_float_array,
 };
@@ -15,13 +17,22 @@ use mockall::automock;
 #[automock]
 pub trait PhotoRepository {
     /// Lists photo paths that do not have embeddings, with pagination.
-    fn list_paths_without_embedding(&mut self, page: i64, per_page: i64) -> Result<PaginatedPaths>;
+    fn list_paths_without_embedding(
+        &mut self,
+        pagination: PaginationFilter,
+    ) -> Result<PaginatedPhotoPaths>;
+
+    /// Lists photo paths that do not have face detection completed, with pagination.
+    fn list_paths_without_face_detection(
+        &mut self,
+        pagination: PaginationFilter,
+    ) -> Result<PaginatedPhotoPaths>;
 
     /// Inserts a batch of new photos.
     fn insert_batch(&mut self, new_photos: Vec<NewPhoto>) -> Result<usize>;
 
-    /// Updates embeddings for a batch of photos.
-    fn update_embeddings(&mut self, embeddings: Vec<PhotoEmbedding>) -> Result<usize>;
+    /// Updates a photo.
+    fn update_one(&mut self, id: i32, updated_photo: UpdatedPhoto) -> Result<Photo>;
 
     /// Find photos with filters, pagination, and sorting
     fn find(
@@ -134,7 +145,7 @@ impl PhotoRepository for PgPhotoRepository {
         let total_pages = (total + pagination.per_page - 1) / pagination.per_page;
 
         Ok(PaginatedPhotos {
-            photos,
+            items: photos,
             total,
             page: pagination.page,
             per_page: pagination.per_page,
@@ -142,9 +153,12 @@ impl PhotoRepository for PgPhotoRepository {
         })
     }
 
-    fn list_paths_without_embedding(&mut self, page: i64, per_page: i64) -> Result<PaginatedPaths> {
+    fn list_paths_without_embedding(
+        &mut self,
+        pagination: PaginationFilter,
+    ) -> Result<PaginatedPhotoPaths> {
         let mut conn = self.get_connection()?;
-        let offset = (page - 1) * per_page;
+        let offset = (pagination.page - 1) * pagination.per_page;
 
         let total: i64 = schema::photos::table
             .select(diesel::dsl::count_star())
@@ -152,17 +166,20 @@ impl PhotoRepository for PgPhotoRepository {
             .first(&mut conn)?;
 
         let paths = schema::photos::table
-            .select(schema::photos::path)
+            .select((schema::photos::id, schema::photos::path))
             .filter(schema::photos::embedding.is_null())
-            .limit(per_page)
+            .limit(pagination.per_page)
             .offset(offset)
             .load(&mut conn)?;
 
-        Ok(PaginatedPaths {
-            paths,
+        let total_pages = (total + pagination.per_page - 1) / pagination.per_page;
+
+        Ok(PaginatedPhotoPaths {
+            items: paths,
             total,
-            page,
-            per_page,
+            page: pagination.page,
+            per_page: pagination.per_page,
+            total_pages,
         })
     }
 
@@ -194,16 +211,51 @@ impl PhotoRepository for PgPhotoRepository {
             .map_err(Error::from)
     }
 
-    fn update_embeddings(&mut self, embeddings: Vec<PhotoEmbedding>) -> Result<usize> {
+    fn list_paths_without_face_detection(
+        &mut self,
+        pagination: PaginationFilter,
+    ) -> Result<PaginatedPhotoPaths> {
         let mut conn = self.get_connection()?;
-        let mut total_updated = 0;
-        for embedding in embeddings {
-            let updated = diesel::update(schema::photos::table)
-                .filter(schema::photos::path.eq(&embedding.path))
-                .set(schema::photos::embedding.eq(&embedding.embedding))
-                .execute(&mut conn)?;
-            total_updated += updated;
-        }
-        Ok(total_updated)
+        let offset = (pagination.page - 1) * pagination.per_page;
+
+        let total: i64 = schema::photos::table
+            .select(diesel::dsl::count_star())
+            .filter(
+                schema::photos::face_detection_completed
+                    .is_null()
+                    .or(schema::photos::face_detection_completed.eq(false)),
+            )
+            .first(&mut conn)?;
+
+        let paths = schema::photos::table
+            .select((schema::photos::id, schema::photos::path))
+            .filter(
+                schema::photos::face_detection_completed
+                    .is_null()
+                    .or(schema::photos::face_detection_completed.eq(false)),
+            )
+            .limit(pagination.per_page)
+            .offset(offset)
+            .load(&mut conn)?;
+
+        let total_pages = (total + pagination.per_page - 1) / pagination.per_page;
+
+        Ok(PaginatedPhotoPaths {
+            items: paths,
+            total,
+            page: pagination.page,
+            per_page: pagination.per_page,
+            total_pages,
+        })
+    }
+
+    fn update_one(&mut self, id: i32, updated_photo: UpdatedPhoto) -> Result<Photo> {
+        let mut conn = self.get_connection()?;
+
+        let photo = diesel::update(schema::photos::table.find(id))
+            .set(&updated_photo)
+            .get_result(&mut conn)?;
+
+        Ok(photo)
     }
 }

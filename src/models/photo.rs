@@ -1,6 +1,6 @@
 use crate::{database::schema::photos, models::pagination::PaginatedResult};
 use chrono::{DateTime, NaiveDateTime, Utc};
-use diesel::{Insertable, Queryable, QueryableByName, Selectable};
+use diesel::{AsChangeset, Insertable, Queryable, QueryableByName, Selectable};
 use pgvector::Vector;
 use postgis_diesel::types::Point;
 
@@ -14,7 +14,6 @@ pub struct Photo {
     pub file_size: i64,
     pub created_at: DateTime<Utc>,
     pub modified_at: DateTime<Utc>,
-    pub indexed_at: DateTime<Utc>,
     pub hash: Option<String>,
     pub camera_make: Option<String>,
     pub camera_model: Option<String>,
@@ -26,22 +25,26 @@ pub struct Photo {
     pub image_width: Option<i32>,
     pub image_height: Option<i32>,
     pub embedding: Option<Vector>,
+    pub face_detection_completed: bool,
     pub country_id: Option<i32>,
     pub city_id: Option<i32>,
+    pub indexed_at: DateTime<Utc>,
 }
 
-#[derive(Debug)]
-pub struct PaginatedPaths {
-    pub paths: Vec<String>,
-    pub total: i64,
-    pub page: i64,
-    pub per_page: i64,
+#[derive(AsChangeset, Debug, Default)]
+#[diesel(table_name = photos)]
+pub struct UpdatedPhoto {
+    pub embedding: Option<Option<Vector>>,
+    pub face_detection_completed: Option<bool>,
 }
 
-#[derive(Debug)]
-pub struct PhotoEmbedding {
+#[derive(Debug, Queryable)]
+#[diesel(table_name = photos)]
+pub struct PhotoPath {
+    pub id: i32,
     pub path: String,
-    pub embedding: Option<Vector>,
 }
 
 pub type PaginatedPhotos = PaginatedResult<Photo>;
+
+pub type PaginatedPhotoPaths = PaginatedResult<PhotoPath>;

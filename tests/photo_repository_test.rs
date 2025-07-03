@@ -1,11 +1,9 @@
 use chrono::{DateTime, NaiveDate, Utc};
-use diesel::{PgConnection, QueryDsl, RunQueryDsl, SelectableHelper, connection::SimpleConnection};
+use diesel::RunQueryDsl;
 use pgvector::Vector;
 use picasa_rs::{
     database::schema,
-    models::{
-        NewPhoto, PaginationFilter, {Photo, PhotoEmbedding},
-    },
+    models::{NewPhoto, PaginationFilter, UpdatedPhoto},
     repositories::{PgPhotoRepository, PhotoFindFilters, PhotoRepository},
     services::embedders::text::{ClipTextEmbedder, TextEmbedder},
 };
@@ -14,18 +12,13 @@ use serial_test::serial;
 mod db;
 use db::get_pool;
 
-fn load_photos(conn: &mut PgConnection) -> Vec<Photo> {
-    schema::photos::table
-        .select(Photo::as_select())
-        .load(conn)
-        .expect("Failed to load photos")
-}
+mod utils;
+use utils::{insert_photo_fixtures, load_photos};
 
 #[test]
 #[serial]
 fn test_should_insert_batch() {
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
     let photos = vec![
         NewPhoto {
@@ -38,10 +31,10 @@ fn test_should_insert_batch() {
         },
     ];
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
     let count = repo.insert_batch(photos).expect("Failed to insert photos");
 
-    let photos = load_photos(&mut conn);
+    let photos = load_photos(pool.clone());
     let paths = vec![photos[0].path.to_string(), photos[1].path.to_string()];
 
     assert_eq!(count, 2);
@@ -53,7 +46,6 @@ fn test_should_insert_batch() {
 #[serial]
 fn test_should_handle_insert_conflicts_with_upsert() {
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
     let original_photo = NewPhoto {
         path: "test/photo.jpg".to_string(),
@@ -64,7 +56,7 @@ fn test_should_handle_insert_conflicts_with_upsert() {
         ..Default::default()
     };
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
     let count = repo
         .insert_batch(vec![original_photo.clone()])
         .expect("Failed to insert original photo");
@@ -87,7 +79,7 @@ fn test_should_handle_insert_conflicts_with_upsert() {
 
     assert_eq!(count, 1);
 
-    let photos = load_photos(&mut conn);
+    let photos = load_photos(pool.clone());
 
     assert_eq!(photos.len(), 1);
 
@@ -105,7 +97,6 @@ fn test_should_handle_insert_conflicts_with_upsert() {
 #[serial]
 fn test_should_preserve_embeddings_on_conflict() {
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
     let embedding_vector = Vector::from(vec![0.1_f32; 512]);
     let original_photo = NewPhoto {
@@ -114,7 +105,7 @@ fn test_should_preserve_embeddings_on_conflict() {
         ..Default::default()
     };
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
     repo.insert_batch(vec![original_photo])
         .expect("Failed to insert original photo");
 
@@ -127,7 +118,7 @@ fn test_should_preserve_embeddings_on_conflict() {
     repo.insert_batch(vec![updated_photo])
         .expect("Failed to insert updated photo");
 
-    let photos = load_photos(&mut conn);
+    let photos = load_photos(pool.clone());
 
     assert_eq!(photos.len(), 1);
     let photo = &photos[0];
@@ -142,7 +133,6 @@ fn test_should_preserve_embeddings_on_conflict() {
 #[serial]
 fn test_should_clear_embedding_on_hash_change() {
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
     let embedding_vector = Vector::from(vec![0.1_f32; 512]);
     let original_photo = NewPhoto {
@@ -152,7 +142,7 @@ fn test_should_clear_embedding_on_hash_change() {
         ..Default::default()
     };
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
     repo.insert_batch(vec![original_photo])
         .expect("Failed to insert original photo");
 
@@ -166,7 +156,7 @@ fn test_should_clear_embedding_on_hash_change() {
     repo.insert_batch(vec![updated_photo])
         .expect("Failed to insert updated photo");
 
-    let photos = load_photos(&mut conn);
+    let photos = load_photos(pool.clone());
 
     assert!(photos[0].embedding.is_none());
 }
@@ -195,44 +185,46 @@ fn test_should_list_paths_without_embedding() {
 
     let mut repo = PgPhotoRepository::new(pool);
     let paginated_paths = repo
-        .list_paths_without_embedding(1, 10)
+        .list_paths_without_embedding(PaginationFilter {
+            page: 1,
+            per_page: 10,
+        })
         .expect("Failed to list paths");
 
-    assert_eq!(paginated_paths.paths, vec!["path1"]);
+    assert_eq!(paginated_paths.items[0].path, "path1");
 }
 
 #[test]
 #[serial]
 fn test_should_update_embeddings() {
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
+    let mut conn = pool.clone().get().unwrap();
 
     let photo = NewPhoto {
         path: "test/photo.jpg".to_string(),
         file_name: "photo.jpg".to_string(),
         ..Default::default()
     };
-    diesel::insert_into(schema::photos::table)
+    let photo_id = diesel::insert_into(schema::photos::table)
         .values(photo.clone())
-        .execute(&mut conn)
+        .returning(schema::photos::id)
+        .get_result(&mut conn)
         .expect("Failed to insert photo");
-
     let embedding_vector = Vector::from(vec![0.1_f32; 512]);
-    let photo_embedding = PhotoEmbedding {
-        path: photo.path,
-        embedding: Some(embedding_vector.clone()),
-    };
 
-    let mut repo = PgPhotoRepository::new(pool);
-    let update_count = repo
-        .update_embeddings(vec![photo_embedding])
+    let mut repo = PgPhotoRepository::new(pool.clone());
+    let updated_photo = repo
+        .update_one(
+            photo_id,
+            UpdatedPhoto {
+                embedding: Some(Some(embedding_vector.clone())),
+                ..Default::default()
+            },
+        )
         .expect("Failed to update embeddings");
 
-    let photos = load_photos(&mut conn);
-
-    assert_eq!(update_count, 1);
     assert_eq!(
-        photos[0].embedding.as_ref().unwrap().as_slice(),
+        updated_photo.embedding.as_ref().unwrap().as_slice(),
         embedding_vector.as_slice()
     );
 }
@@ -240,20 +232,12 @@ fn test_should_update_embeddings() {
 #[test]
 #[serial]
 fn test_should_find_photos_with_pagination() {
-    use std::fs;
-
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
-    // Load test data
-    let sql =
-        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
-    conn.batch_execute(&sql)
-        .expect("Failed to execute SQL script");
+    insert_photo_fixtures(pool.clone());
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
 
-    // Create search filters with just pagination options
     let filters = PaginationFilter {
         page: 1,
         per_page: 2,
@@ -265,7 +249,7 @@ fn test_should_find_photos_with_pagination() {
         .expect("Failed to search photos");
 
     // Verify pagination works correctly
-    assert_eq!(result.photos.len(), 2); // Should return 2 photos per page
+    assert_eq!(result.items.len(), 2); // Should return 2 photos per page
     assert_eq!(result.page, 1); // Should be on page 1
     assert_eq!(result.per_page, 2); // Should have 2 items per page
     assert!(result.total > 0); // Should have some total count
@@ -275,17 +259,11 @@ fn test_should_find_photos_with_pagination() {
 #[test]
 #[serial]
 fn test_should_find_photos_with_pagination_second_page() {
-    use std::fs;
-
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
-    let sql =
-        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
-    conn.batch_execute(&sql)
-        .expect("Failed to execute SQL script");
+    insert_photo_fixtures(pool.clone());
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
 
     let page2_filters = PaginationFilter {
         page: 2,
@@ -296,7 +274,7 @@ fn test_should_find_photos_with_pagination_second_page() {
         .find(page2_filters, PhotoFindFilters::default())
         .expect("Failed to search photos");
 
-    assert_eq!(page2_result.photos.len(), 1);
+    assert_eq!(page2_result.items.len(), 1);
     assert_eq!(page2_result.page, 2);
     assert_eq!(page2_result.per_page, 1);
     assert!(page2_result.total > 1);
@@ -312,7 +290,7 @@ fn test_should_find_photos_with_pagination_second_page() {
         .expect("Failed to search photos for page 1");
 
     assert_ne!(
-        page1_result.photos[0].path, page2_result.photos[0].path,
+        page1_result.items[0].path, page2_result.items[0].path,
         "Photos on different pages should be different"
     );
 }
@@ -320,17 +298,11 @@ fn test_should_find_photos_with_pagination_second_page() {
 #[test]
 #[serial]
 fn test_should_find_photos_by_date_range() {
-    use std::fs;
-
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
-    let sql =
-        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
-    conn.batch_execute(&sql)
-        .expect("Failed to execute SQL script");
+    insert_photo_fixtures(pool.clone());
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
 
     let date_from = NaiveDate::from_ymd_opt(2025, 1, 1)
         .unwrap()
@@ -357,8 +329,8 @@ fn test_should_find_photos_by_date_range() {
         )
         .expect("Failed to search photos by date range");
 
-    assert!(!result.photos.is_empty(), "Should find photos from 2025");
-    for photo in &result.photos {
+    assert!(!result.items.is_empty(), "Should find photos from 2025");
+    for photo in &result.items {
         if let Some(date_taken) = photo.date_taken_utc {
             assert!(
                 date_taken >= DateTime::<Utc>::from_naive_utc_and_offset(date_from, Utc)
@@ -373,17 +345,11 @@ fn test_should_find_photos_by_date_range() {
 #[test]
 #[serial]
 fn test_should_find_photos_by_semantic_query() {
-    use std::fs;
-
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
-    let sql =
-        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
-    conn.batch_execute(&sql)
-        .expect("Failed to execute SQL script");
+    insert_photo_fixtures(pool.clone());
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
     let text_embedder = ClipTextEmbedder::new().expect("Failed to create embedder");
     let text_embedding = text_embedder
         .embed("white building")
@@ -404,21 +370,15 @@ fn test_should_find_photos_by_semantic_query() {
         )
         .expect("Failed to search photos by semantic query");
 
-    assert!(result.photos[0].path.contains("building_vietnam"));
+    assert!(result.items[0].path.contains("building_vietnam"));
 }
 
 #[test]
 #[serial]
 fn test_should_find_photos_by_country() {
-    use std::fs;
-
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
-    let sql =
-        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
-    conn.batch_execute(&sql)
-        .expect("Failed to execute SQL script");
+    insert_photo_fixtures(pool.clone());
 
     let mut repo = PgPhotoRepository::new(pool);
 
@@ -437,13 +397,13 @@ fn test_should_find_photos_by_country() {
         )
         .expect("Failed to search photos by country");
 
-    assert_eq!(result.photos.len(), 2, "Should find 2 photos from Vietnam");
+    assert_eq!(result.items.len(), 2, "Should find 2 photos from Vietnam");
     assert_eq!(
-        result.photos[0].path,
+        result.items[0].path,
         "tests/data/images/sub/desk_vietnam.heic"
     );
     assert_eq!(
-        result.photos[1].path,
+        result.items[1].path,
         "tests/data/images/sub/sub/building_vietnam.jpg"
     );
 }
@@ -451,17 +411,11 @@ fn test_should_find_photos_by_country() {
 #[test]
 #[serial]
 fn test_should_find_photos_with_combined_filters() {
-    use std::fs;
-
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
-    let sql =
-        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
-    conn.batch_execute(&sql)
-        .expect("Failed to execute SQL script");
+    insert_photo_fixtures(pool.clone());
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
 
     let date_from = NaiveDate::from_ymd_opt(2025, 3, 1)
         .unwrap()
@@ -491,12 +445,12 @@ fn test_should_find_photos_with_combined_filters() {
         .expect("Failed to search photos with combined filters");
 
     assert_eq!(
-        result.photos.len(),
+        result.items.len(),
         1,
         "Should find 1 photo matching all criteria"
     );
     assert_eq!(
-        result.photos[0].path, "tests/data/images/sub/sub/building_vietnam.jpg",
+        result.items[0].path, "tests/data/images/sub/sub/building_vietnam.jpg",
         "Should find the building photo from Vietnam"
     );
 }
@@ -504,17 +458,11 @@ fn test_should_find_photos_with_combined_filters() {
 #[test]
 #[serial]
 fn test_should_find_photos_by_city() {
-    use std::fs;
-
     let pool = get_pool();
-    let mut conn = pool.get().unwrap();
 
-    let sql =
-        fs::read_to_string("tests/data/fixtures/photos.sql").expect("Failed to read SQL file");
-    conn.batch_execute(&sql)
-        .expect("Failed to execute SQL script");
+    insert_photo_fixtures(pool.clone());
 
-    let mut repo = PgPhotoRepository::new(pool);
+    let mut repo = PgPhotoRepository::new(pool.clone());
 
     let filters = PhotoFindFilters {
         city_id: Some(1566083),
@@ -532,16 +480,16 @@ fn test_should_find_photos_by_city() {
         .expect("Failed to search photos by country");
 
     assert_eq!(
-        result.photos.len(),
+        result.items.len(),
         2,
         "Should find 2 photos from Ho Chi Minh"
     );
     assert_eq!(
-        result.photos[0].path,
+        result.items[0].path,
         "tests/data/images/sub/desk_vietnam.heic"
     );
     assert_eq!(
-        result.photos[1].path,
+        result.items[1].path,
         "tests/data/images/sub/sub/building_vietnam.jpg"
     );
 }

@@ -78,12 +78,6 @@ pub fn extract_exif<P: AsRef<Path>>(path: P) -> Option<Exif> {
 }
 
 /// Serializes a float array into PostgreSQL array literal format.
-///
-/// # Example
-/// ```
-/// let nums = vec![1.0, 2.5, 3.0];
-/// assert_eq!(serialize_float_array(&nums), "[1,2.5,3]");
-/// ```
 pub fn serialize_float_array(float_array: &[f32]) -> String {
     format!(
         "[{}]",

@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS photos (
     file_size BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     modified_at TIMESTAMPTZ NOT NULL,
-    indexed_at TIMESTAMPTZ NOT NULL,
 
     -- File blake3 hash
     hash TEXT,
@@ -28,9 +27,14 @@ CREATE TABLE IF NOT EXISTS photos (
     -- CLIP embedding
     embedding VECTOR(512),
 
+    -- Face detection
+    face_detection_completed BOOLEAN NOT NULL DEFAULT FALSE, 
+
     -- Foreign keys
     country_id INTEGER REFERENCES countries(gid),
-    city_id INTEGER REFERENCES cities(geonameid)
+    city_id INTEGER REFERENCES cities(geonameid),
+
+    indexed_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS photos_embedding_cosine_idx ON photos USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
