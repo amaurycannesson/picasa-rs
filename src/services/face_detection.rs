@@ -1,7 +1,8 @@
+use std::time::Instant;
+
 use anyhow::{Context, Result};
 use pgvector::Vector;
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
 
 use crate::{
     models::{NewFace, PaginationFilter, UpdatedPhoto},
@@ -52,17 +53,18 @@ impl<PR: PhotoRepository, FR: FaceRepository, P: ProgressReporter> FaceDetection
         }
     }
 
-    /// Detect faces in photos that haven't been processed yet
+    /// Detects faces in photos that haven't been processed yet.
     pub fn detect_faces(&mut self) -> Result<usize> {
         let start = Instant::now();
-        let per_page = 20i64;
-        let mut page = 1i64;
-        let total_processed = 0usize;
+        let mut total_processed = 0usize;
 
         loop {
             let paginated_paths = self
                 .photo_repository
-                .list_paths_without_face_detection(PaginationFilter { page, per_page })
+                .list_paths_without_face_detection(PaginationFilter {
+                    page: 1,
+                    per_page: 20,
+                })
                 .context("Failed to fetch photos without face detection")?;
 
             if paginated_paths.items.is_empty() {
@@ -70,12 +72,10 @@ impl<PR: PhotoRepository, FR: FaceRepository, P: ProgressReporter> FaceDetection
             }
 
             self.progress_reporter.set_message(format!(
-                "Processing batch {} ({} photos remaining)",
-                page,
-                paginated_paths.total - (page - 1) * per_page
+                "Processing photos: {} total, {} remaining",
+                total_processed, paginated_paths.total
             ));
 
-            // Process each photo in the batch
             for photo_path in &paginated_paths.items {
                 let photo_id = photo_path.id;
                 let path = photo_path.path.clone();
@@ -100,12 +100,13 @@ impl<PR: PhotoRepository, FR: FaceRepository, P: ProgressReporter> FaceDetection
                             .context("Failed to update face detection completed status")?;
                     }
                     Err(e) => {
+                        // TODO: Fix infinite loop if only errors
                         log::warn!("Failed to detect faces for photo {}: {}", path, e);
                     }
                 }
             }
 
-            page += 1;
+            total_processed += paginated_paths.items.len();
         }
 
         let duration = start.elapsed();
@@ -158,7 +159,6 @@ fn convert_detected_face_to_new_face(detected_face: DetectedFace, photo_id: i32)
         bbox_width: detected_face.bbox.width,
         bbox_height: detected_face.bbox.height,
         confidence: detected_face.confidence,
-        recognition_confidence: None,
         gender: Some(detected_face.gender),
         embedding: Some(Vector::from(detected_face.embedding)),
     }

@@ -3,10 +3,15 @@ use clap::{Parser, Subcommand};
 use picasa_rs::{
     database,
     models::Photo,
-    repositories::{PgGeoRepository, PgPhotoRepository, face::repository::PgFaceRepository},
+    repositories::{
+        PgGeoRepository, PgPhotoRepository, face::repository::PgFaceRepository,
+        person::repository::PgPersonRepository,
+    },
     services::{
-        FaceDetectionService, PhotoEmbedderService, PhotoSearchParams, PhotoSearchService,
+        FaceDetectionService, FaceRecognitionService, PhotoEmbedderService, PhotoSearchParams,
+        PhotoSearchService,
         embedders::{ClipImageEmbedder, ClipTextEmbedder},
+        face_recognition::{RecognitionAction, RecognitionConfig, RecognitionResult},
         photo_scanner,
     },
     utils::progress_reporter,
@@ -38,16 +43,16 @@ enum Commands {
         #[arg(long = "with-hash", help = "Enable file hash computation")]
         with_hash: bool,
     },
-    /// Process embeddings for photos and faces
+    /// Generate image embeddings for photos
     #[command(subcommand)]
-    Embed(EmbedCommands),
+    Embed,
     /// Search photos
     Search {
         /// The query string to search for
         #[arg(long = "text", help = "The semantic query string to search for photos")]
         text: Option<String>,
 
-        /// Optional similarity threshold (default: 0.0)
+        /// Optional similarity threshold
         #[arg(long = "threshold", help = "Similarity threshold for search results")]
         threshold: Option<f32>,
 
@@ -73,7 +78,7 @@ enum Commands {
         )]
         date_to: Option<String>,
 
-        /// Page number for pagination (default: 1)
+        /// Page number for pagination
         #[arg(
             long = "page",
             help = "Page number for pagination",
@@ -81,7 +86,7 @@ enum Commands {
         )]
         page: u32,
 
-        /// Optional result limit (default: 10)
+        /// Optional result limit
         #[arg(
             long = "per_page",
             help = "Maximum number of results per page",
@@ -89,14 +94,56 @@ enum Commands {
         )]
         per_page: u32,
     },
+    /// Face detection and recognition
+    #[command(subcommand)]
+    Face(FaceCommands),
 }
 
 #[derive(Subcommand)]
-enum EmbedCommands {
-    /// Generate image embeddings for photos
-    Image,
+enum FaceCommands {
     /// Detect and embed faces in photos
-    Face,
+    Detect,
+    /// Match face with people
+    Recognize {
+        /// Similarity threshold for clustering faces
+        #[arg(
+            long = "similarity-threshold",
+            help = "Similarity threshold for clustering faces"
+        )]
+        similarity_threshold: Option<f32>,
+
+        /// Minimum number of faces required to form a cluster
+        #[arg(
+            long = "min-cluster-size",
+            help = "Minimum number of faces required to form a cluster"
+        )]
+        min_cluster_size: Option<i32>,
+
+        /// Maximum neighbors to consider for each face
+        #[arg(
+            long = "max-neighbors",
+            help = "Maximum neighbors to consider for each face"
+        )]
+        max_neighbors: Option<i32>,
+
+        /// Auto-assignment threshold - higher confidence required for automatic assignment
+        #[arg(
+            long = "auto-assign-threshold",
+            help = "Auto-assignment threshold for automatic assignment"
+        )]
+        auto_assign_threshold: Option<f32>,
+
+        /// Minimum faces required to create a new person
+        #[arg(
+            long = "min-faces-for-new-person",
+            help = "Minimum faces required to create a new person"
+        )]
+        min_faces_for_new_person: Option<i32>,
+
+        /// Preview actions without executing them
+        #[arg(long = "dry-run", help = "Preview actions without executing them")]
+        dry_run: bool,
+    },
 }
 
 #[derive(Tabled)]
@@ -105,6 +152,8 @@ struct PhotoRow {
     pub id: i32,
     #[tabled(rename = "Path")]
     pub path: String,
+    #[tabled(rename = "Creation date")]
+    pub date_taken: String,
 }
 
 impl From<Photo> for PhotoRow {
@@ -112,6 +161,44 @@ impl From<Photo> for PhotoRow {
         Self {
             id: result.id,
             path: result.path,
+            date_taken: result
+                .date_taken_local
+                .unwrap_or(result.created_at.naive_local())
+                .to_string(),
+        }
+    }
+}
+
+#[derive(Tabled)]
+struct RecognitionResultRow {
+    #[tabled(rename = "ID")]
+    pub cluster_id: i32,
+    #[tabled(rename = "Action")]
+    pub action: String,
+    #[tabled(rename = "Face IDs")]
+    pub face_ids: String,
+    #[tabled(rename = "Photo paths")]
+    pub photo_paths: String,
+}
+
+impl From<RecognitionResult> for RecognitionResultRow {
+    fn from(result: RecognitionResult) -> Self {
+        Self {
+            cluster_id: result.cluster_id,
+            action: match result.action {
+                RecognitionAction::AutoAssignToExisting { person_name, .. } => {
+                    format!("✅ Assigned to {}", person_name)
+                }
+                RecognitionAction::CreateNewPerson { suggested_name, .. } => {
+                    format!("🆕 Created {}", suggested_name)
+                }
+                RecognitionAction::ManualReview { reason, .. } => {
+                    format!("⚠️ Review: {:?}", reason)
+                }
+                RecognitionAction::Reject { reason, .. } => format!("❌ Rejected: {:?}", reason),
+            },
+            face_ids: format!("{:?}", result.face_ids),
+            photo_paths: result.photo_paths.join("\n"),
         }
     }
 }
@@ -145,34 +232,68 @@ impl Cli {
 
                 Ok(())
             }
-            Commands::Embed(embed_command) => {
-                match embed_command {
-                    EmbedCommands::Image => {
-                        let progress_reporter = progress_reporter::CliProgressReporter::new();
-                        let image_embedder = ClipImageEmbedder::new()?;
-                        let mut photo_embedder = PhotoEmbedderService::new(
-                            photo_repository,
-                            image_embedder,
-                            progress_reporter,
-                        );
+            Commands::Embed {} => {
+                let progress_reporter = progress_reporter::CliProgressReporter::new();
+                let image_embedder = ClipImageEmbedder::new()?;
+                let mut photo_embedder =
+                    PhotoEmbedderService::new(photo_repository, image_embedder, progress_reporter);
 
-                        photo_embedder.embed()?;
-                    }
-                    EmbedCommands::Face => {
-                        let progress_reporter = progress_reporter::CliProgressReporter::new();
-                        let face_repository = PgFaceRepository::new(pool);
-                        let mut face_detection_service = FaceDetectionService::new(
-                            photo_repository,
-                            face_repository,
-                            progress_reporter,
-                        );
-
-                        face_detection_service.detect_faces()?;
-                    }
-                }
+                photo_embedder.embed()?;
 
                 Ok(())
             }
+            Commands::Face(face_command) => match face_command {
+                FaceCommands::Detect {} => {
+                    let progress_reporter = progress_reporter::CliProgressReporter::new();
+                    let face_repository = PgFaceRepository::new(pool);
+                    let mut face_detection_service = FaceDetectionService::new(
+                        photo_repository,
+                        face_repository,
+                        progress_reporter,
+                    );
+
+                    face_detection_service.detect_faces()?;
+
+                    Ok(())
+                }
+                FaceCommands::Recognize {
+                    similarity_threshold,
+                    min_cluster_size,
+                    max_neighbors,
+                    auto_assign_threshold,
+                    min_faces_for_new_person,
+                    dry_run,
+                } => {
+                    let config = RecognitionConfig {
+                        similarity_threshold: similarity_threshold.unwrap_or(0.6),
+                        max_neighbors: max_neighbors.unwrap_or(20),
+                        min_cluster_size: min_cluster_size.unwrap_or(3),
+                        auto_assign_threshold: auto_assign_threshold.unwrap_or(0.8),
+                        min_faces_for_new_person: min_faces_for_new_person.unwrap_or(3),
+                    };
+
+                    let face_repository = PgFaceRepository::new(pool.clone());
+                    let person_repository = PgPersonRepository::new(pool.clone());
+                    let progress_reporter = progress_reporter::CliProgressReporter::new();
+
+                    let mut face_recognition_service = FaceRecognitionService::new(
+                        face_repository,
+                        person_repository,
+                        progress_reporter,
+                        Some(config),
+                    );
+
+                    let result = face_recognition_service.recognize_faces(dry_run)?;
+
+                    let recognition_result_rows: Vec<RecognitionResultRow> =
+                        result.results.into_iter().map(|p| p.into()).collect();
+                    let mut table = Table::new(recognition_result_rows);
+                    table.with(Style::rounded());
+                    println!("{}", table);
+
+                    Ok(())
+                }
+            },
             Commands::Search {
                 text,
                 threshold,

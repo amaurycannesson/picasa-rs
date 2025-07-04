@@ -14,11 +14,11 @@ CREATE TABLE IF NOT EXISTS faces (
     
     -- Face recognition
     person_id INTEGER REFERENCES people(id),
-    recognition_confidence REAL,
-    
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS faces_photo_id_idx ON faces(photo_id);
 CREATE INDEX IF NOT EXISTS faces_person_id_idx ON faces(person_id);
+CREATE INDEX IF NOT EXISTS faces_embedding_cosine_idx ON faces USING hnsw (embedding vector_cosine_ops) WITH (m = 24, ef_construction = 128);

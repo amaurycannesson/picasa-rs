@@ -1,11 +1,13 @@
 use std::time::Instant;
 
+use anyhow::{Context, Result};
+use ignore;
+
 use crate::models::NewPhoto;
 use crate::repositories::PhotoRepository;
 use crate::utils::{self, progress_reporter::ProgressReporter};
-use anyhow::{Context, Result};
 
-/// Scan photos in the given path and insert them into the repository.
+/// Scans photos in the given path and inserts them into the repository.
 pub fn scan(
     path: &str,
     photo_repository: &mut dyn PhotoRepository,

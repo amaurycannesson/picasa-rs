@@ -95,7 +95,6 @@ diesel::table! {
         gender -> Nullable<Varchar>,
         embedding -> Nullable<Vector>,
         person_id -> Nullable<Int4>,
-        recognition_confidence -> Nullable<Float4>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

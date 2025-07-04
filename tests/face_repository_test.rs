@@ -31,7 +31,6 @@ fn test_should_insert_one() {
         bbox_width: 50,
         bbox_height: 60,
         confidence: 0.95,
-        recognition_confidence: None,
         gender: Some("male".to_string()),
         embedding: Some(Vector::from(vec![0.1_f32; 512])),
     };

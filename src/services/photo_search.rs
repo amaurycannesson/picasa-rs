@@ -1,10 +1,11 @@
+use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
+
 use crate::{
     models::{PaginatedPhotos, PaginationFilter},
     repositories::{GeoRepository, PhotoFindFilters, PhotoRepository},
     services::embedders::text::TextEmbedder,
 };
-use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
 
 #[derive(Default)]
 pub struct PhotoSearchParams {
@@ -21,14 +22,14 @@ pub struct PhotoSearchParams {
     pub per_page: u32,
 }
 
-pub struct PhotoSearchService<R1: PhotoRepository, R2: GeoRepository, E: TextEmbedder> {
-    photo_repository: R1,
-    geo_repository: R2,
+pub struct PhotoSearchService<PR: PhotoRepository, GR: GeoRepository, E: TextEmbedder> {
+    photo_repository: PR,
+    geo_repository: GR,
     text_embedder: E,
 }
 
-impl<R1: PhotoRepository, R2: GeoRepository, E: TextEmbedder> PhotoSearchService<R1, R2, E> {
-    pub fn new(photo_repository: R1, geo_repository: R2, text_embedder: E) -> Self {
+impl<PR: PhotoRepository, GR: GeoRepository, E: TextEmbedder> PhotoSearchService<PR, GR, E> {
+    pub fn new(photo_repository: PR, geo_repository: GR, text_embedder: E) -> Self {
         Self {
             photo_repository,
             geo_repository,
@@ -36,6 +37,7 @@ impl<R1: PhotoRepository, R2: GeoRepository, E: TextEmbedder> PhotoSearchService
         }
     }
 
+    /// Searches for photos based on the provided search parameters.
     pub fn search(&mut self, search_params: PhotoSearchParams) -> Result<PaginatedPhotos> {
         let mut find_filters = PhotoFindFilters::default();
 
@@ -63,7 +65,7 @@ impl<R1: PhotoRepository, R2: GeoRepository, E: TextEmbedder> PhotoSearchService
             let city_id = self
                 .geo_repository
                 .find_city_id_by_name(city)
-                .context("Failed ton find city id")?;
+                .context("Failed to find city id")?;
 
             find_filters.city_id = city_id;
         }

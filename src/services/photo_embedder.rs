@@ -1,6 +1,7 @@
+use std::time::Instant;
+
 use anyhow::{Context, Result};
 use pgvector::Vector;
-use std::time::Instant;
 
 use crate::{
     models::{PaginationFilter, UpdatedPhoto},
@@ -24,18 +25,19 @@ impl<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> PhotoEmbedderSer
         }
     }
 
-    /// Compute embeddings
+    /// Computes embeddings for photos that don't have them yet.
     pub fn embed(&mut self) -> Result<usize> {
         let start = Instant::now();
-        let per_page = 20i64;
-        let mut page = 1i64;
         let mut total_processed = 0usize;
 
         loop {
             // Get the next batch of photos without embeddings
             let paginated_paths = self
                 .photo_repository
-                .list_paths_without_embedding(PaginationFilter { page, per_page })
+                .list_paths_without_embedding(PaginationFilter {
+                    page: 1,
+                    per_page: 20,
+                })
                 .context("Failed to fetch photos without embeddings")?;
 
             // If no more photos to process, break
@@ -44,9 +46,8 @@ impl<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> PhotoEmbedderSer
             }
 
             self.progress_reporter.set_message(format!(
-                "Processing batch {} ({} photos remaining)",
-                page,
-                paginated_paths.total - (page - 1) * per_page
+                "Processing photos: {} total, {} remaining",
+                total_processed, paginated_paths.total
             ));
 
             // Compute embeddings for this batch
@@ -73,14 +74,7 @@ impl<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> PhotoEmbedderSer
                     .context("Failed to update embeddings in database")?;
             }
 
-            let updated_count = paginated_paths.items.len();
-            total_processed += updated_count;
-            self.progress_reporter.set_message(format!(
-                "Processed {} photos (batch {}, {} total)",
-                updated_count, page, total_processed
-            ));
-
-            page += 1;
+            total_processed += paginated_paths.items.len();
         }
 
         let duration = start.elapsed();

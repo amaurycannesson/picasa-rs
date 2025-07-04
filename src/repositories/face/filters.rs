@@ -4,4 +4,6 @@ pub struct FaceFindFilters {
     pub person_id: Option<i32>,
     pub face_embedding: Option<Vec<f32>>,
     pub threshold: Option<f32>,
+    pub has_embedding: Option<bool>,
+    pub has_person: Option<bool>,
 }

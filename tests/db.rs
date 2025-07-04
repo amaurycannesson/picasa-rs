@@ -6,7 +6,7 @@ use picasa_rs::database::{self, DbPool, schema};
 static INIT: Once = Once::new();
 
 pub fn get_pool() -> DbPool {
-    dotenvy::from_filename(".env.test").ok();
+    dotenvy::from_filename_override(".env.test").ok();
 
     let mut pool = database::create_pool();
     let mut conn = pool.get().unwrap();

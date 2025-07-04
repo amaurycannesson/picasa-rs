@@ -37,6 +37,5 @@ CREATE TABLE IF NOT EXISTS photos (
     indexed_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS photos_embedding_cosine_idx ON photos USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-
+CREATE INDEX IF NOT EXISTS photos_embedding_cosine_idx ON photos USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS photos_gps_location_gist_idx ON photos USING GIST (gps_location);

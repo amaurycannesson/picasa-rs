@@ -1,3 +1,12 @@
+use anyhow::{Context, Error, Result};
+use diesel::{
+    dsl::sql,
+    prelude::*,
+    sql_query,
+    sql_types::{Bool, Float},
+};
+use mockall::automock;
+
 use crate::{
     database::{DbConnection, DbPool, schema},
     models::{
@@ -6,13 +15,6 @@ use crate::{
     repositories::PhotoFindFilters,
     utils::serialize_float_array,
 };
-use anyhow::{Context, Error, Result};
-use diesel::{
-    dsl::sql,
-    prelude::*,
-    sql_types::{Bool, Float},
-};
-use mockall::automock;
 
 #[automock]
 pub trait PhotoRepository {
@@ -31,10 +33,10 @@ pub trait PhotoRepository {
     /// Inserts a batch of new photos.
     fn insert_batch(&mut self, new_photos: Vec<NewPhoto>) -> Result<usize>;
 
-    /// Updates a photo.
+    /// Updates a photo and returns the updated photo.
     fn update_one(&mut self, id: i32, updated_photo: UpdatedPhoto) -> Result<Photo>;
 
-    /// Find photos with filters, pagination, and sorting
+    /// Finds photos with filters, pagination, and sorting.
     fn find(
         &mut self,
         pagination: PaginationFilter,
@@ -85,17 +87,14 @@ impl PhotoRepository for PgPhotoRepository {
         let mut conn = self.get_connection()?;
         let offset = (pagination.page - 1) * pagination.per_page;
 
-        // Build base count query
         let mut count_query = schema::photos::table
             .select(diesel::dsl::count_star())
             .into_boxed();
 
-        // Build base select query
         let mut select_query = schema::photos::table
             .select(Photo::as_select())
             .into_boxed();
 
-        // Apply semantic filter if present
         if let Some(ref text_embedding) = filters.text_embedding {
             let threshold = filters.threshold.unwrap_or(0.0);
             let semantic_filter_sql = Self::build_semantic_filter_sql(text_embedding, threshold);
@@ -103,24 +102,20 @@ impl PhotoRepository for PgPhotoRepository {
             count_query = count_query.filter(sql::<Bool>(&semantic_filter_sql));
             select_query = select_query.filter(sql::<Bool>(&semantic_filter_sql));
 
-            // Add semantic ordering
             let order_sql = Self::build_semantic_order_sql(text_embedding);
             select_query = select_query.order(sql::<Float>(&order_sql).desc());
         }
 
-        // Apply country filter if present
         if let Some(country_id) = filters.country_id {
             count_query = count_query.filter(schema::photos::country_id.eq(country_id));
             select_query = select_query.filter(schema::photos::country_id.eq(country_id));
         }
 
-        // Apply city filter if present
         if let Some(city_id) = filters.city_id {
             count_query = count_query.filter(schema::photos::city_id.eq(city_id));
             select_query = select_query.filter(schema::photos::city_id.eq(city_id));
         }
 
-        // Apply date filters
         if let Some(date_from) = filters.date_from {
             count_query = count_query.filter(schema::photos::date_taken_utc.ge(date_from));
             select_query = select_query.filter(schema::photos::date_taken_utc.ge(date_from));
@@ -131,17 +126,17 @@ impl PhotoRepository for PgPhotoRepository {
             select_query = select_query.filter(schema::photos::date_taken_utc.le(date_to));
         }
 
-        // Get total count of filtered photos
-        let total: i64 = count_query.first(&mut conn)?;
+        if filters.text_embedding.is_some() {
+            sql_query("SET hnsw.ef_search = 80").execute(&mut conn)?;
+        }
 
-        // Get paginated photos with consistent ordering
+        let total: i64 = count_query.first(&mut conn)?;
         let photos = select_query
             .then_order_by(schema::photos::id.asc())
             .limit(pagination.per_page)
             .offset(offset)
             .load(&mut conn)?;
 
-        // Calculate total pages (ceiling division)
         let total_pages = (total + pagination.per_page - 1) / pagination.per_page;
 
         Ok(PaginatedPhotos {
@@ -220,20 +215,12 @@ impl PhotoRepository for PgPhotoRepository {
 
         let total: i64 = schema::photos::table
             .select(diesel::dsl::count_star())
-            .filter(
-                schema::photos::face_detection_completed
-                    .is_null()
-                    .or(schema::photos::face_detection_completed.eq(false)),
-            )
+            .filter(schema::photos::face_detection_completed.eq(false))
             .first(&mut conn)?;
 
         let paths = schema::photos::table
             .select((schema::photos::id, schema::photos::path))
-            .filter(
-                schema::photos::face_detection_completed
-                    .is_null()
-                    .or(schema::photos::face_detection_completed.eq(false)),
-            )
+            .filter(schema::photos::face_detection_completed.eq(false))
             .limit(pagination.per_page)
             .offset(offset)
             .load(&mut conn)?;

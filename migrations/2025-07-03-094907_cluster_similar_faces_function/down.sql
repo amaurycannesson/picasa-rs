@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS cluster_similar_faces(FLOAT, INTEGER, INTEGER);

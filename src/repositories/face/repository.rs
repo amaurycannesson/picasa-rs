@@ -1,28 +1,41 @@
-use crate::{
-    database::{DbConnection, DbPool, schema},
-    models::{Face, NewFace, PaginatedFaces, PaginationFilter},
-    repositories::face::filters::FaceFindFilters,
-    utils::serialize_float_array,
-};
 use anyhow::{Context, Error, Result};
 use diesel::{
     dsl::sql,
     prelude::*,
+    sql_query,
     sql_types::{Bool, Float},
 };
 use mockall::automock;
+
+use crate::{
+    database::{DbConnection, DbPool, schema},
+    models::{Face, FaceCluster, NewFace, PaginatedFaces, PaginationFilter, face::UpdatedFace},
+    repositories::face::filters::FaceFindFilters,
+    utils::serialize_float_array,
+};
 
 #[automock]
 pub trait FaceRepository {
     /// Inserts a single face and returns the created face.
     fn insert_one(&mut self, new_face: NewFace) -> Result<Face>;
 
-    /// Find faces with filters, pagination, and sorting
+    /// Updates a face and returns the updated face.
+    fn update_one(&mut self, id: i32, updated_face: UpdatedFace) -> Result<Face>;
+
+    /// Finds faces with filters, pagination, and sorting.
     fn find(
         &mut self,
         pagination: PaginationFilter,
         filters: FaceFindFilters,
     ) -> Result<PaginatedFaces>;
+
+    /// Clusters similar faces using face embeddings.
+    fn cluster_similar_faces(
+        &mut self,
+        similarity_threshold: f32,
+        max_neighbors: i32,
+        min_cluster_size: i32,
+    ) -> Result<Vec<FaceCluster>>;
 }
 
 pub struct PgFaceRepository {
@@ -77,15 +90,28 @@ impl FaceRepository for PgFaceRepository {
         let mut conn = self.get_connection()?;
         let offset = (pagination.page - 1) * pagination.per_page;
 
-        // Build base count query
         let mut count_query = schema::faces::table
             .select(diesel::dsl::count_star())
             .into_boxed();
 
-        // Build base select query
         let mut select_query = schema::faces::table.select(Face::as_select()).into_boxed();
 
-        // Apply semantic filter if present
+        if let Some(true) = filters.has_embedding {
+            count_query = count_query.filter(schema::faces::embedding.is_not_null());
+            select_query = select_query.filter(schema::faces::embedding.is_not_null());
+        } else if let Some(false) = filters.has_embedding {
+            count_query = count_query.filter(schema::faces::embedding.is_null());
+            select_query = select_query.filter(schema::faces::embedding.is_null());
+        }
+
+        if let Some(true) = filters.has_person {
+            count_query = count_query.filter(schema::faces::person_id.is_not_null());
+            select_query = select_query.filter(schema::faces::person_id.is_not_null());
+        } else if let Some(false) = filters.has_person {
+            count_query = count_query.filter(schema::faces::person_id.is_null());
+            select_query = select_query.filter(schema::faces::person_id.is_null());
+        }
+
         if let Some(ref face_embedding) = filters.face_embedding {
             let threshold = filters.threshold.unwrap_or(0.0);
             let semantic_filter_sql = Self::build_semantic_filter_sql(face_embedding, threshold);
@@ -93,34 +119,31 @@ impl FaceRepository for PgFaceRepository {
             count_query = count_query.filter(sql::<Bool>(&semantic_filter_sql));
             select_query = select_query.filter(sql::<Bool>(&semantic_filter_sql));
 
-            // Add semantic ordering
             let order_sql = Self::build_semantic_order_sql(face_embedding);
             select_query = select_query.order(sql::<Float>(&order_sql).desc());
         }
 
-        // Apply photo_id filter if present
         if let Some(photo_id) = filters.photo_id {
             count_query = count_query.filter(schema::faces::photo_id.eq(photo_id));
             select_query = select_query.filter(schema::faces::photo_id.eq(photo_id));
         }
 
-        // Apply person_id filter if present
         if let Some(person_id) = filters.person_id {
             count_query = count_query.filter(schema::faces::person_id.eq(person_id));
             select_query = select_query.filter(schema::faces::person_id.eq(person_id));
         }
 
-        // Get total count of filtered faces
-        let total: i64 = count_query.first(&mut conn)?;
+        if filters.face_embedding.is_some() {
+            sql_query("SET hnsw.ef_search = 100").execute(&mut conn)?;
+        }
 
-        // Get paginated faces with consistent ordering
+        let total: i64 = count_query.first(&mut conn)?;
         let faces = select_query
             .then_order_by(schema::faces::id.asc())
             .limit(pagination.per_page)
             .offset(offset)
             .load(&mut conn)?;
 
-        // Calculate total pages (ceiling division)
         let total_pages = (total + pagination.per_page - 1) / pagination.per_page;
 
         Ok(PaginatedFaces {
@@ -130,5 +153,33 @@ impl FaceRepository for PgFaceRepository {
             per_page: pagination.per_page,
             total_pages,
         })
+    }
+
+    fn cluster_similar_faces(
+        &mut self,
+        similarity_threshold: f32,
+        max_neighbors: i32,
+        min_cluster_size: i32,
+    ) -> Result<Vec<FaceCluster>> {
+        let mut conn = self.get_connection()?;
+
+        let sql_query = format!(
+            "SELECT * FROM cluster_similar_faces({}, {}, {})",
+            similarity_threshold, max_neighbors, min_cluster_size
+        );
+
+        let clusters = diesel::sql_query(sql_query).load::<FaceCluster>(&mut conn)?;
+
+        Ok(clusters)
+    }
+
+    fn update_one(&mut self, id: i32, updated_face: UpdatedFace) -> Result<Face> {
+        let mut conn = self.get_connection()?;
+
+        let face = diesel::update(schema::faces::table.find(id))
+            .set(&updated_face)
+            .get_result(&mut conn)?;
+
+        Ok(face)
     }
 }
