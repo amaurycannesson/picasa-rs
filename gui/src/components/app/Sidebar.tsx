@@ -15,7 +15,7 @@ import {
 const mainMenuItems = [
   { icon: Search, label: 'Photos', path: '/search' },
   { icon: Album, label: 'Albums', path: '/' },
-  { icon: LucideUser, label: 'People', path: '/' },
+  { icon: LucideUser, label: 'People', path: '/people' },
   { icon: MapPin, label: 'Places', path: '/' },
 ];
 

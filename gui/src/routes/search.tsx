@@ -17,6 +17,9 @@ import { useSidebar } from '@/components/ui/sidebar';
 
 export const Route = createFileRoute('/search')({
   component: SearchPage,
+  staticData: {
+    breadcrumb: 'Photo search',
+  },
 });
 
 function SearchPage() {
