@@ -12,6 +12,18 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
+const mainMenuItems = [
+  { icon: Search, label: 'Photos', path: '/search' },
+  { icon: Album, label: 'Albums', path: '/' },
+  { icon: LucideUser, label: 'People', path: '/' },
+  { icon: MapPin, label: 'Places', path: '/' },
+];
+
+const footerMenuItems = [
+  { icon: Import, label: 'Import', path: '/' },
+  { icon: Settings, label: 'Settings', path: '/' },
+];
+
 export function Sidebar() {
   return (
     <UiSidebar>
@@ -32,59 +44,39 @@ export function Sidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={true}>
-                <Link to={'/'}>
-                  <Search />
-                  <span>Photos</span>
+            {mainMenuItems.map((item) => (
+              <SidebarMenuItem key={item.label}>
+                <Link to={item.path}>
+                  {({ isActive }) => (
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <span>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </span>
+                    </SidebarMenuButton>
+                  )}
                 </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link to={'/'}>
-                  <Album />
-                  <span>Albums</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link to={'/'}>
-                  <LucideUser />
-                  <span>People</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link to={'/'}>
-                  <MapPin />
-                  <span>Places</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link to={'/'}>
-                <Import />
-                <span>Import</span>
+          {footerMenuItems.map((item) => (
+            <SidebarMenuItem key={item.label}>
+              <Link to={item.path}>
+                {({ isActive }) => (
+                  <SidebarMenuButton asChild isActive={isActive}>
+                    <span>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </span>
+                  </SidebarMenuButton>
+                )}
               </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link to={'/'}>
-                <Settings />
-                <span>Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+            </SidebarMenuItem>
+          ))}
         </SidebarMenu>
       </SidebarFooter>
     </UiSidebar>
