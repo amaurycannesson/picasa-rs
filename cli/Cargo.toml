@@ -1,0 +1,17 @@
+[package]
+name = "picasa-cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "picasa-cli"
+path = "src/main.rs"
+
+[dependencies]
+picasa-core.workspace = true
+dotenvy.workspace = true
+anyhow.workspace = true
+
+clap = { version = "4.5", features = ["derive"] }
+indicatif = "0.17.8"
+tabled = "0.20.0"

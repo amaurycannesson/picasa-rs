@@ -1,0 +1,90 @@
+env_files = [
+  { path = ".env.test", profile = "testing" },
+  { path = ".env", profile = "development" },
+]
+
+[config]
+default_to_workspace = false
+
+# =============================================================================
+# DATABASE TASKS
+# =============================================================================
+
+[tasks.db-build]
+description = "Build the PostgreSQL image"
+script = '''
+docker build \
+  --platform linux/amd64 \
+  --build-arg POSTGRES_USER=${PICASA_POSTGRES_USER} \
+  --file ./postgres.Dockerfile \
+  --tag picasa-db:latest \
+  .
+'''
+
+[tasks.db-start]
+description = "Start the PostgreSQL container"
+script = '''
+docker run \
+  --platform linux/amd64 \
+  --detach \
+  --name ${PICASA_POSTGRES_DB} \
+  --publish ${PICASA_POSTGRES_PORT}:5432 \
+  --env POSTGRES_DB=${PICASA_POSTGRES_DB} \
+  --env POSTGRES_USER=${PICASA_POSTGRES_USER} \
+  --env POSTGRES_PASSWORD=${PICASA_POSTGRES_PASSWORD} \
+  picasa-db:latest
+'''
+
+[tasks.db-stop]
+description = "Stop and remove the PostgreSQL container"
+script = '''
+docker stop ${PICASA_POSTGRES_DB} || true
+docker rm ${PICASA_POSTGRES_DB} || true
+'''
+
+[tasks.db-wait]
+description = "Wait for PostgreSQL to be ready"
+private = true
+script = '''
+echo "⏳ Waiting for PostgreSQL to be ready..."
+while ! docker logs ${PICASA_POSTGRES_DB} 2>&1 | grep -q "database system is ready to accept connections"; do
+  echo "Database not ready yet, waiting..."
+  sleep 10
+done
+echo "✅ PostgreSQL is ready!"
+'''
+
+[tasks.db-reset]
+description = "Reset PostgreSQL (stop, start, and run migrations)"
+dependencies = ["db-stop"]
+run_task = { name = ["db-start", "db-wait", "db-migrations"] }
+
+[tasks.db-migrations]
+description = "Run database migrations using Diesel"
+script = '''
+echo "⚙️ Run migrations on ${PICASA_POSTGRES_DB}"
+diesel migration run \
+  --database-url postgres://${PICASA_POSTGRES_USER}:${PICASA_POSTGRES_PASSWORD}@localhost:${PICASA_POSTGRES_PORT}/${PICASA_POSTGRES_DB}
+'''
+
+# =============================================================================
+# APPLICATION TASKS
+# =============================================================================
+
+[tasks.cli]
+description = "Run the CLI application"
+script = '''
+cargo run -p picasa-cli -- "$@"
+'''
+
+[tasks.gui]
+description = "Run the GUI in development mode"
+cwd = "gui"
+command = "npm"
+args = ["run", "tauri", "dev"]
+
+[tasks.face-ws]
+description = "Run the Python face detection web server"
+cwd = "python/face_detection"
+command = "uv"
+args = ["run", "main.py"]

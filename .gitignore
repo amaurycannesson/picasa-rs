@@ -4,3 +4,5 @@
 
 model.safetensors
 tokenizer.json
+
+cache_dir/

@@ -1,36 +1,19 @@
-[package]
-name = "picasa-rs"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = ["core", "cli", "gui/src-tauri"]
+resolver = "3"
 
-[dependencies]
-clap = { version = "4.5", features = ["derive"] }
+
+[workspace.dependencies]
+anyhow = "1.0.98"
+chrono = { version = "0.4.41", features = ["serde"] }
 diesel = { version = "2.2.0", features = ["postgres", "chrono", "r2d2"] }
 diesel_migrations = "2.2.0"
-r2d2 = "0.8"
 dotenvy = "0.15"
-tempfile = "3.20.0"
-mockall = "0.13.1"
-ignore = "0.4.23"
-indicatif = "0.17.8"
-chrono = "0.4.41"
-nom-exif = "2.5.4"
-blake3 = "1.5.4"
-pgvector = { version = "0.4.1", features = ["diesel"] }
-postgis_diesel = "3.0.1"
-candle-core = "0.9.1"
-candle-nn = "0.9.1"
-candle-transformers = "0.9.1"
 image = "0.25.6"
-libheif-rs = { version = "2.2.0", default-features = false, features = ["v1_19"] }
-tokenizers = { version = "0.21.1", default-features = false, features = ["onig"] }
-tabled = "0.20.0"
-rayon = "1.10"
-log = "0.4"
-anyhow = "1.0.98"
-reqwest = { version = "0.12", features = ["json", "blocking"] }
+libheif-rs = { version = "2.2.0", default-features = false, features = [
+    "v1_19",
+] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-[dev-dependencies]
-serial_test = "3.2.0"
+picasa-core = { path = "core" }

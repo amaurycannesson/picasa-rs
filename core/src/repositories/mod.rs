@@ -1,0 +1,11 @@
+pub mod face;
+pub mod geo;
+pub mod person;
+pub mod photo;
+
+pub use face::filters::FaceFindFilters;
+pub use face::repository::{FaceRepository, PgFaceRepository};
+pub use geo::{GeoRepository, PgGeoRepository};
+pub use person::repository::{PersonRepository, PgPersonRepository};
+pub use photo::filters::PhotoFindFilters;
+pub use photo::repository::{PgPhotoRepository, PhotoRepository};

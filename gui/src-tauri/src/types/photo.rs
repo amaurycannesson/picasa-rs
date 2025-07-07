@@ -1,0 +1,120 @@
+use picasa_core::{models, services};
+use serde::{Deserialize, Serialize};
+use specta::Type;
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct Photo {
+    pub id: i32,
+    pub path: String,
+    pub file_name: String,
+    pub file_size: i64,
+    pub created_at: String,
+    pub modified_at: String,
+    pub hash: Option<String>,
+    pub camera_make: Option<String>,
+    pub camera_model: Option<String>,
+    pub lens_model: Option<String>,
+    pub orientation: Option<i32>,
+    pub date_taken_local: Option<String>,
+    pub date_taken_utc: Option<String>,
+    pub image_width: Option<i32>,
+    pub image_height: Option<i32>,
+    pub face_detection_completed: bool,
+    pub country_id: Option<i32>,
+    pub city_id: Option<i32>,
+}
+
+impl From<models::Photo> for Photo {
+    fn from(core_photo: models::Photo) -> Self {
+        Self {
+            id: core_photo.id,
+            path: core_photo.path,
+            file_name: core_photo.file_name,
+            file_size: core_photo.file_size as i64,
+            created_at: core_photo.created_at.to_rfc3339(),
+            modified_at: core_photo.modified_at.to_rfc3339(),
+            hash: core_photo.hash,
+            camera_make: core_photo.camera_make,
+            camera_model: core_photo.camera_model,
+            lens_model: core_photo.lens_model,
+            orientation: core_photo.orientation,
+            date_taken_local: core_photo.date_taken_local.map(|dt| dt.to_string()),
+            date_taken_utc: core_photo.date_taken_utc.map(|dt| dt.to_rfc3339()),
+            image_width: core_photo.image_width,
+            image_height: core_photo.image_height,
+            face_detection_completed: core_photo.face_detection_completed,
+            country_id: core_photo.country_id,
+            city_id: core_photo.city_id,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct PaginatedPhotos {
+    pub items: Vec<Photo>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+    pub total_pages: i64,
+}
+
+impl From<models::PaginatedPhotos> for PaginatedPhotos {
+    fn from(paginated_photos: models::PaginatedPhotos) -> Self {
+        Self {
+            items: paginated_photos
+                .items
+                .into_iter()
+                .map(Photo::from)
+                .collect(),
+            total: paginated_photos.total,
+            page: paginated_photos.page,
+            per_page: paginated_photos.per_page,
+            total_pages: paginated_photos.total_pages,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Type, Default)]
+pub struct PhotoSearchParams {
+    pub text: Option<String>,
+    pub threshold: Option<f32>,
+
+    pub country: Option<String>,
+    pub city: Option<String>,
+
+    pub date_from: Option<String>,
+    pub date_to: Option<String>,
+
+    pub page: u32,
+    pub per_page: u32,
+}
+
+impl From<services::PhotoSearchParams> for PhotoSearchParams {
+    fn from(photo_search_params: services::PhotoSearchParams) -> Self {
+        Self {
+            text: photo_search_params.text,
+            threshold: photo_search_params.threshold,
+            country: photo_search_params.country,
+            city: photo_search_params.city,
+            date_from: photo_search_params.date_from,
+            date_to: photo_search_params.date_to,
+            page: photo_search_params.page,
+            per_page: photo_search_params.per_page,
+        }
+    }
+}
+
+impl From<PhotoSearchParams> for services::PhotoSearchParams {
+    fn from(photo_search_params: PhotoSearchParams) -> Self {
+        Self {
+            text: photo_search_params.text,
+            threshold: photo_search_params.threshold,
+            country: photo_search_params.country,
+            city: photo_search_params.city,
+            date_from: photo_search_params.date_from,
+            date_to: photo_search_params.date_to,
+            page: photo_search_params.page,
+            per_page: photo_search_params.per_page,
+        }
+    }
+}
