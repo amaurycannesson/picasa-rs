@@ -13,7 +13,9 @@ pub struct PhotoSearchParams {
     pub threshold: Option<f32>,
 
     pub country: Option<String>,
+    pub country_id: Option<i32>,
     pub city: Option<String>,
+    pub city_id: Option<i32>,
 
     pub date_from: Option<String>,
     pub date_to: Option<String>,
@@ -52,23 +54,19 @@ impl<PR: PhotoRepository, GR: GeoRepository, E: TextEmbedder> PhotoSearchService
 
         find_filters.threshold = search_params.threshold;
 
-        if let Some(country) = search_params.country {
-            let country_id = self
-                .geo_repository
-                .find_country_id_by_name(country)
-                .context("Failed to find country id")?;
+        let country_id = match (search_params.country_id, search_params.country) {
+            (Some(id), _) => Some(id),
+            (None, Some(name)) => self.geo_repository.find_country_id_by_name(name)?,
+            _ => None,
+        };
+        find_filters.country_id = country_id;
 
-            find_filters.country_id = country_id;
-        }
-
-        if let Some(city) = search_params.city {
-            let city_id = self
-                .geo_repository
-                .find_city_id_by_name(city)
-                .context("Failed to find city id")?;
-
-            find_filters.city_id = city_id;
-        }
+        let city_id = match (search_params.city_id, search_params.city) {
+            (Some(id), _) => Some(id),
+            (None, Some(name)) => self.geo_repository.find_city_id_by_name(name)?,
+            _ => None,
+        };
+        find_filters.city_id = city_id;
 
         if let Some(date_from) = search_params.date_from {
             let parsed_date = date_from

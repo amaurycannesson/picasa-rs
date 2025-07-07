@@ -36,6 +36,8 @@ function Index() {
       city: searchCity || null,
       date_from: null,
       date_to: null,
+      country_id: null,
+      city_id: null,
       page,
       per_page: perPage,
     };

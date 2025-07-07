@@ -317,6 +317,7 @@ impl Cli {
                     date_to,
                     page,
                     per_page,
+                    ..PhotoSearchParams::default()
                 };
 
                 let result = photo_search.search(search_params)?;
