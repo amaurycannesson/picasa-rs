@@ -17,8 +17,10 @@ import { useSidebar } from '@/components/ui/sidebar';
 
 export const Route = createFileRoute('/search')({
   component: SearchPage,
-  staticData: {
-    breadcrumb: 'Photo search',
+  loader: () => {
+    return {
+      breadcrumb: 'Photo search',
+    };
   },
 });
 
@@ -54,7 +56,7 @@ function SearchPage() {
   }
   return (
     <div>
-      <div className="flex gap-2 mb-4">
+      <div className="mb-4 flex gap-2">
         <Input
           placeholder="Search..."
           value={searchText}
@@ -78,11 +80,11 @@ function SearchPage() {
 
       {paginatedPhotos && paginatedPhotos.items.length > 0 ? (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
             {paginatedPhotos.items.map((p) => (
               <div
                 key={p.path}
-                className="aspect-square overflow-hidden rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow"
+                className="aspect-square overflow-hidden rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md"
               >
                 <PhotoThumbnail photoPath={p.path} />
               </div>
@@ -91,7 +93,7 @@ function SearchPage() {
 
           {paginatedPhotos.total_pages > 1 && (
             <div
-              className="fixed bottom-4 left-1/2 transform -translate-x-1/2  rounded-lg shadow-lg border p-2 z-10"
+              className="fixed bottom-4 left-1/2 z-10 -translate-x-1/2 transform rounded-lg border p-2 shadow-lg"
               style={{
                 marginLeft: open && !isMobile ? '7rem' : '0',
               }}

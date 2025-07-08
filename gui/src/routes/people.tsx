@@ -21,7 +21,6 @@ import { Input } from '@/components/ui/input';
 
 export const Route = createFileRoute('/people')({
   component: RouteComponent,
-  staticData: { breadcrumb: 'People' },
   loader: async () => {
     const people = await commands.listPersons();
     const pendingReviewsPromise = commands.getPendingManualReviews();
@@ -31,6 +30,7 @@ export const Route = createFileRoute('/people')({
     return {
       people: people.data,
       pendingReviewsPromise,
+      breadcrumb: 'People',
     };
   },
   errorComponent: ({ error }: { error: { message: string } }) => {

@@ -1,4 +1,4 @@
-import { useMatches } from '@tanstack/react-router';
+import { isMatch, Link, useMatches } from '@tanstack/react-router';
 
 import {
   Breadcrumb as UiBreadcrumb,
@@ -10,16 +10,25 @@ import {
 const Breadcrumb = () => {
   const matches = useMatches();
 
-  const breadcrumb = (matches[1].staticData as { [k: string]: string }).breadcrumb;
-
-  if (!breadcrumb) return <></>;
+  const items = matches
+    .filter((match) => isMatch(match, 'loaderData.breadcrumb'))
+    .map(({ pathname, loaderData }) => {
+      return {
+        href: pathname,
+        label: loaderData?.breadcrumb,
+      };
+    });
 
   return (
     <UiBreadcrumb>
       <BreadcrumbList>
-        <BreadcrumbItem className="hidden md:block">
-          <BreadcrumbLink href="#">{breadcrumb}</BreadcrumbLink>
-        </BreadcrumbItem>
+        {items.map(({ label, href }) => (
+          <BreadcrumbItem key={href} className="hidden md:block">
+            <BreadcrumbLink asChild={true}>
+              <Link to={href}>{label}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+        ))}
       </BreadcrumbList>
     </UiBreadcrumb>
   );
