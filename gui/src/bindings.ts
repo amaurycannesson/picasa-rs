@@ -5,7 +5,7 @@
 
 
 export const commands = {
-async searchPhotos(params: PhotoSearchParams) : Promise<Result<PaginatedPhotos, null>> {
+async searchPhotos(params: PhotoSearchParams) : Promise<Result<PaginatedPhotos, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_photos", { params }) };
 } catch (e) {
@@ -13,7 +13,7 @@ async searchPhotos(params: PhotoSearchParams) : Promise<Result<PaginatedPhotos, 
     else return { status: "error", error: e  as any };
 }
 },
-async loadPhoto(path: string) : Promise<Result<number[], null>> {
+async loadPhoto(path: string) : Promise<Result<number[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("load_photo", { path }) };
 } catch (e) {
@@ -21,7 +21,7 @@ async loadPhoto(path: string) : Promise<Result<number[], null>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getPendingManualReviews() : Promise<Result<PendingFaceReview[], null>> {
+async getPendingManualReviews() : Promise<Result<PendingFaceReview[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_pending_manual_reviews") };
 } catch (e) {
@@ -29,7 +29,7 @@ async getPendingManualReviews() : Promise<Result<PendingFaceReview[], null>> {
     else return { status: "error", error: e  as any };
 }
 },
-async loadFaceImage(faceId: number) : Promise<Result<number[], null>> {
+async loadFaceImage(faceId: number) : Promise<Result<number[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("load_face_image", { faceId }) };
 } catch (e) {
@@ -37,7 +37,7 @@ async loadFaceImage(faceId: number) : Promise<Result<number[], null>> {
     else return { status: "error", error: e  as any };
 }
 },
-async createPersonFromFaces(personName: string, faceIds: number[]) : Promise<Result<null, null>> {
+async createPersonFromFaces(personName: string, faceIds: number[]) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_person_from_faces", { personName, faceIds }) };
 } catch (e) {
@@ -45,7 +45,7 @@ async createPersonFromFaces(personName: string, faceIds: number[]) : Promise<Res
     else return { status: "error", error: e  as any };
 }
 },
-async listPersons() : Promise<Result<Person[], null>> {
+async listPersons() : Promise<Result<Person[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("list_persons") };
 } catch (e) {

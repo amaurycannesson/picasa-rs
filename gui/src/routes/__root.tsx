@@ -5,6 +5,7 @@ import { Breadcrumb } from '@/components/app/Breadcrumb';
 import { Sidebar } from '@/components/app/Sidebar';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Toaster } from '@/components/ui/sonner';
 
 export const Route = createRootRoute({
   component: () => (
@@ -19,6 +20,7 @@ export const Route = createRootRoute({
           </header>
           <div className="flex flex-1 flex-col gap-4 p-4">
             <Outlet />
+            <Toaster />
           </div>
         </SidebarInset>
       </SidebarProvider>

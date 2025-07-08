@@ -26,7 +26,7 @@ pub fn run() {
         commands::photo::load_photo,
         commands::face::get_pending_manual_reviews,
         commands::face::load_face_image,
-        commands::face::create_person_from_faces,
+        commands::person::create_person_from_faces,
         commands::person::list_persons,
     ]);
 

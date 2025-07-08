@@ -14,24 +14,28 @@ use crate::{
 
 #[tauri::command]
 #[specta::specta]
-pub async fn load_photo(path: &str) -> Result<Vec<u8>, ()> {
+pub async fn load_photo(path: &str) -> Result<Vec<u8>, String> {
     let img_service = ImageService::new(Path::new("../../cache_dir").to_path_buf());
-    let data = img_service.get_thumbnail(path).await.unwrap();
-    Ok(data)
+
+    img_service
+        .get_thumbnail(path)
+        .await
+        .map_err(|e| format!("Failed to load photo: {}", e))
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn search_photos(
+pub async fn search_photos(
     params: PhotoSearchParams,
     state: State<'_, AppState>,
-) -> Result<PaginatedPhotos, ()> {
+) -> Result<PaginatedPhotos, String> {
     let photo_repository = PgPhotoRepository::new(state.db_pool.clone());
     let geo_repository = PgGeoRepository::new(state.db_pool.clone());
     let text_embedder = ClipTextEmbedder::new().unwrap();
     let mut photo_search = PhotoSearchService::new(photo_repository, geo_repository, text_embedder);
 
-    let result = photo_search.search(params.into()).unwrap();
-
-    Ok(PaginatedPhotos::from(result))
+    photo_search
+        .search(params.into())
+        .map(PaginatedPhotos::from)
+        .map_err(|e| format!("Failed to search photos: {}", e))
 }
