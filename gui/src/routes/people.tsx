@@ -1,7 +1,10 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Await, createFileRoute, useRouter } from '@tanstack/react-router';
 import { AlertCircleIcon, CheckIcon, Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
 import { commands, PendingFaceReview, Person, Result } from '@/bindings';
 import { FaceCrop } from '@/components/app/FaceCrop';
@@ -17,6 +20,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 
 export const Route = createFileRoute('/people')({
@@ -92,6 +96,12 @@ const _Person = ({ person }: { person: Person }) => {
   );
 };
 
+const personNameSchema = z.object({
+  personName: z.string().min(3, 'Person name must be at least 3 characters'),
+});
+
+type PersonNameFormValues = z.infer<typeof personNameSchema>;
+
 const CardReview = ({
   face,
   onCreatePerson,
@@ -99,14 +109,21 @@ const CardReview = ({
   face: PendingFaceReview;
   onCreatePerson: (personName: string) => Promise<void>;
 }) => {
-  const [personName, setPersonName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleCreatePerson = async () => {
-    if (personName) {
+  const form = useForm<PersonNameFormValues>({
+    resolver: zodResolver(personNameSchema),
+    defaultValues: {
+      personName: '',
+    },
+  });
+
+  const handleCreatePerson = async (values: PersonNameFormValues) => {
+    if (values.personName) {
       setIsLoading(true);
-      await onCreatePerson(personName);
+      await onCreatePerson(values.personName);
       setIsLoading(false);
+      form.reset();
     }
   };
 
@@ -120,7 +137,7 @@ const CardReview = ({
       >
         <CarouselContent className="pl-2">
           {face.face_ids.map((id) => (
-            <CarouselItem key={id} className="md:basis-1/2 lg:basis-1/3">
+            <CarouselItem key={id} className="basis-1/3">
               <FaceCrop faceId={id} />
             </CarouselItem>
           ))}
@@ -133,14 +150,25 @@ const CardReview = ({
         )}
       </Carousel>
       <CardFooter className="p-0">
-        <Input
-          placeholder="Enter person name"
-          value={personName}
-          onChange={(e) => setPersonName(e.target.value)}
-        />
-        <Button className="ml-2" onClick={handleCreatePerson} disabled={!personName || isLoading}>
-          {isLoading ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
-        </Button>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleCreatePerson)} className="flex">
+            <FormField
+              control={form.control}
+              name="personName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input placeholder="Enter person name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="ml-2" disabled={!form.formState.isValid || isLoading}>
+              {isLoading ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
+            </Button>
+          </form>
+        </Form>
       </CardFooter>
     </Card>
   );
