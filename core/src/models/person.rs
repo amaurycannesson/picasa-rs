@@ -12,7 +12,7 @@ pub struct Person {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Insertable)]
+#[derive(Insertable, Debug)]
 #[diesel(table_name = people)]
 pub struct NewPerson {
     pub name: String,

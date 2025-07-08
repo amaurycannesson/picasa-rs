@@ -42,4 +42,11 @@ pub struct UpdatedFace {
     pub person_id: Option<Option<i32>>,
 }
 
+#[derive(Debug)]
+pub struct FaceWithPhoto {
+    pub face: Face,
+    pub photo_id: i32,
+    pub photo_path: String,
+}
+
 pub type PaginatedFaces = PaginatedResult<Face>;

@@ -13,6 +13,6 @@ pub use new_photo::NewPhoto;
 pub use pagination::{PaginatedResult, PaginationFilter};
 pub use photo::{PaginatedPhotoPaths, PaginatedPhotos, Photo, PhotoPath, UpdatedPhoto};
 
-pub use face::{Face, NewFace, PaginatedFaces, UpdatedFace};
+pub use face::{Face, FaceWithPhoto, NewFace, PaginatedFaces, UpdatedFace};
 pub use face_cluster::FaceCluster;
 pub use person::{NewPerson, Person};

@@ -10,6 +10,9 @@ use crate::{
 pub trait PersonRepository {
     /// Inserts a person and returns the created person.
     fn insert_one(&mut self, new_person: NewPerson) -> Result<Person>;
+
+    /// Retrieves all persons.
+    fn find_many(&mut self) -> Result<Vec<Person>>;
 }
 
 pub struct PgPersonRepository {
@@ -39,5 +42,14 @@ impl PersonRepository for PgPersonRepository {
             .get_result(&mut conn)?;
 
         Ok(person)
+    }
+
+    fn find_many(&mut self) -> Result<Vec<Person>> {
+        let mut conn = self.get_connection()?;
+
+        let people =
+            diesel::QueryDsl::select(schema::people::table, Person::as_select()).load(&mut conn)?;
+
+        Ok(people)
     }
 }

@@ -8,7 +8,7 @@ static INIT: Once = Once::new();
 pub fn get_pool() -> DbPool {
     dotenvy::from_filename_override(".env.test").ok();
 
-    let mut pool = database::create_pool();
+    let mut pool = database::create_pool().expect("Failed to create databse pool");
     let mut conn = pool.get().unwrap();
 
     INIT.call_once(|| {

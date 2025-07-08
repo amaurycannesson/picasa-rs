@@ -209,7 +209,7 @@ impl Cli {
     }
 
     pub fn run(self) -> Result<()> {
-        let pool = database::create_pool();
+        let pool = database::create_pool().expect("Failed to create database pool");
 
         let mut photo_repository = PgPhotoRepository::new(pool.clone());
         let geo_repository = PgGeoRepository::new(pool.clone());

@@ -1,8 +1,5 @@
-// src/services/image_service.rs
-use image::{DynamicImage, ImageFormat};
-use libheif_rs::{HeifContext, RgbChroma, ColorSpace};
+use image::{DynamicImage, GenericImageView, ImageFormat};
 use lru::LruCache;
-use std::collections::HashMap;
 use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use tokio::sync::RwLock;
@@ -21,6 +18,14 @@ pub struct ImageSizes {
     pub thumbnail: (u32, u32), // 150x150 for grid view
     pub preview: (u32, u32),   // 400x400 for detail view
     pub medium: (u32, u32),    // 800x600 for modal view
+}
+
+#[derive(Debug, Clone)]
+pub struct BoundingBox {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
 }
 
 impl ImageService {
@@ -96,7 +101,8 @@ impl ImageService {
 
     fn load_image(&self, photo_path: &str) -> anyhow::Result<DynamicImage> {
         let path = Path::new(photo_path);
-        let extension = path.extension()
+        let extension = path
+            .extension()
             .and_then(|ext| ext.to_str())
             .unwrap_or("")
             .to_lowercase();
@@ -108,12 +114,11 @@ impl ImageService {
     }
 
     fn load_heif_image(&self, photo_path: &str) -> anyhow::Result<DynamicImage> {
-        use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
         use anyhow::Context;
+        use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 
         let lib_heif = LibHeif::new();
-        let ctx = HeifContext::read_from_file(photo_path)
-            .context("Failed to read HEIC file")?;
+        let ctx = HeifContext::read_from_file(photo_path).context("Failed to read HEIC file")?;
         let handle = ctx
             .primary_image_handle()
             .context("Failed to get primary image handle")?;
@@ -135,6 +140,32 @@ impl ImageService {
             .ok_or_else(|| anyhow::anyhow!("Failed to create image buffer from HEIF data"))?;
 
         Ok(DynamicImage::ImageRgb8(image_buffer))
+    }
+
+    pub fn crop_image(&self, photo_path: String, bbox: BoundingBox) -> anyhow::Result<Vec<u8>> {
+        let img = self.load_image(&photo_path)?;
+
+        // Ensure coordinates are within image bounds
+        let (img_width, img_height) = img.dimensions();
+        let x = bbox.x.max(0) as u32;
+        let y = bbox.y.max(0) as u32;
+        let width = bbox.width.max(0) as u32;
+        let height = bbox.height.max(0) as u32;
+
+        // Clamp dimensions to image bounds
+        let crop_width = width.min(img_width.saturating_sub(x));
+        let crop_height = height.min(img_height.saturating_sub(y));
+
+        if crop_width == 0 || crop_height == 0 {
+            return Err(anyhow::anyhow!("Invalid crop dimensions"));
+        }
+
+        let cropped = img.crop_imm(x, y, crop_width, crop_height);
+
+        let mut buffer = Vec::new();
+        cropped.write_to(&mut std::io::Cursor::new(&mut buffer), ImageFormat::WebP)?;
+
+        Ok(buffer)
     }
 
     fn hash_path(&self, path: &str) -> String {

@@ -1,48 +1,34 @@
-use picasa_core::{
-    database,
-    repositories::{PgGeoRepository, PgPhotoRepository},
-    services::{embedders::ClipTextEmbedder, PhotoSearchService},
-};
+use picasa_core::database::{self, DbPool};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
-use std::path::Path;
 use tauri_specta::{collect_commands, Builder};
 
-use crate::{
-    services::image::ImageService,
-    types::{PaginatedPhotos, PhotoSearchParams},
-};
-
+pub mod commands;
 pub mod services;
 pub mod types;
 
-#[tauri::command]
-#[specta::specta]
-async fn load_photo(path: &str) -> Result<Vec<u8>, ()> {
-    let img_service = ImageService::new(Path::new("../../cache_dir").to_path_buf());
-    let data = img_service.get_thumbnail(path).await.unwrap();
-    Ok(data)
+pub struct AppState {
+    pub db_pool: DbPool,
 }
 
-#[tauri::command]
-#[specta::specta]
-fn search_photos(params: PhotoSearchParams) -> Result<PaginatedPhotos, ()> {
-    let pool = database::create_pool();
+impl AppState {
+    pub fn new() -> anyhow::Result<Self> {
+        let db_pool = database::create_pool()?;
 
-    let photo_repository = PgPhotoRepository::new(pool.clone());
-    let geo_repository = PgGeoRepository::new(pool.clone());
-    let text_embedder = ClipTextEmbedder::new().unwrap();
-    let mut photo_search = PhotoSearchService::new(photo_repository, geo_repository, text_embedder);
-
-    let result = photo_search.search(params.into()).unwrap();
-
-    Ok(PaginatedPhotos::from(result))
+        Ok(Self { db_pool })
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder =
-        Builder::<tauri::Wry>::new().commands(collect_commands![search_photos, load_photo]);
+    let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+        commands::photo::search_photos,
+        commands::photo::load_photo,
+        commands::face::get_pending_manual_reviews,
+        commands::face::load_face_image,
+        commands::face::create_person_from_faces,
+        commands::person::list_persons,
+    ]);
 
     #[cfg(debug_assertions)]
     builder
@@ -52,8 +38,11 @@ pub fn run() {
         )
         .expect("Failed to export typescript bindings");
 
+    let app_state = AppState::new().expect("Failed to create app state");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .manage(app_state)
         .invoke_handler(builder.invoke_handler())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

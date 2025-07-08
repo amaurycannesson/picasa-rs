@@ -8,7 +8,9 @@ use diesel::{
 
 use crate::{
     database::{DbConnection, DbPool, schema},
-    models::{Face, FaceCluster, NewFace, PaginatedFaces, PaginationFilter, face::UpdatedFace},
+    models::{
+        Face, FaceCluster, FaceWithPhoto, NewFace, PaginatedFaces, PaginationFilter, UpdatedFace,
+    },
     repositories::face::filters::FaceFindFilters,
     utils::serialize_float_array,
 };
@@ -20,6 +22,9 @@ pub trait FaceRepository {
 
     /// Updates a face and returns the updated face.
     fn update_one(&mut self, id: i32, updated_face: UpdatedFace) -> Result<Face>;
+
+    /// Updates many faces by their IDs.
+    fn update_many(&mut self, ids: Vec<i32>, updated_face: UpdatedFace) -> Result<Vec<Face>>;
 
     /// Finds faces with filters, pagination, and sorting.
     fn find(
@@ -35,6 +40,9 @@ pub trait FaceRepository {
         max_neighbors: i32,
         min_cluster_size: i32,
     ) -> Result<Vec<FaceCluster>>;
+
+    /// Finds a face with its photo by face ID.
+    fn find_with_photo_by_id(&mut self, id: i32) -> Result<Option<FaceWithPhoto>>;
 }
 
 pub struct PgFaceRepository {
@@ -180,5 +188,32 @@ impl FaceRepository for PgFaceRepository {
             .get_result(&mut conn)?;
 
         Ok(face)
+    }
+
+    fn update_many(&mut self, ids: Vec<i32>, updated_face: UpdatedFace) -> Result<Vec<Face>> {
+        let mut conn = self.get_connection()?;
+
+        let faces = diesel::update(schema::faces::table.filter(schema::faces::id.eq_any(ids)))
+            .set(&updated_face)
+            .get_results(&mut conn)?;
+
+        Ok(faces)
+    }
+
+    fn find_with_photo_by_id(&mut self, id: i32) -> Result<Option<FaceWithPhoto>> {
+        let mut conn = self.get_connection()?;
+
+        let result = schema::faces::table
+            .inner_join(schema::photos::table)
+            .filter(schema::faces::id.eq(id))
+            .select((Face::as_select(), schema::photos::id, schema::photos::path))
+            .first::<(Face, i32, String)>(&mut conn)
+            .optional()?;
+
+        Ok(result.map(|(face, photo_id, photo_path)| FaceWithPhoto {
+            face,
+            photo_id,
+            photo_path,
+        }))
     }
 }
