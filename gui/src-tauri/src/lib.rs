@@ -28,6 +28,7 @@ pub fn run() {
         commands::face::load_face_image,
         commands::person::create_person_from_faces,
         commands::person::list_persons,
+        commands::person::get_person,
     ]);
 
     #[cfg(debug_assertions)]

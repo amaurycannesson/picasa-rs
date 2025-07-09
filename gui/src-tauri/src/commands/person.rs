@@ -44,3 +44,17 @@ pub async fn create_person_from_faces(
 
     Ok(())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_person(id: i32, state: State<'_, AppState>) -> Result<Person, String> {
+    let face_repository = PgFaceRepository::new(state.db_pool.clone());
+    let person_repository = PgPersonRepository::new(state.db_pool.clone());
+
+    let mut person_service = PersonService::new(person_repository, face_repository);
+
+    person_service
+        .get(id)
+        .map(Person::from)
+        .map_err(|e| format!("Failed to get person: {}", e))
+}

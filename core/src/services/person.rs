@@ -45,6 +45,12 @@ impl<PR: PersonRepository, FR: FaceRepository> PersonService<PR, FR> {
             .find_many()
             .context("Failed to retrieve persons")
     }
+
+    pub fn get(&mut self, id: i32) -> Result<Person> {
+        self.person_repository
+            .find_by_id(id)
+            .context("Failed to retrieve person")
+    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 use anyhow::{Context, Error, Result};
-use diesel::{RunQueryDsl, SelectableHelper};
+use diesel::{RunQueryDsl, SelectableHelper, QueryDsl};
 
 use crate::{
     database::{DbConnection, DbPool, schema},
@@ -13,6 +13,9 @@ pub trait PersonRepository {
 
     /// Retrieves all persons.
     fn find_many(&mut self) -> Result<Vec<Person>>;
+
+    /// Finds a person by ID.
+    fn find_by_id(&mut self, id: i32) -> Result<Person>;
 }
 
 pub struct PgPersonRepository {
@@ -51,5 +54,15 @@ impl PersonRepository for PgPersonRepository {
             diesel::QueryDsl::select(schema::people::table, Person::as_select()).load(&mut conn)?;
 
         Ok(people)
+    }
+
+    fn find_by_id(&mut self, id: i32) -> Result<Person> {
+        let mut conn = self.get_connection()?;
+
+        let person = diesel::QueryDsl::select(schema::people::table, Person::as_select())
+            .find(id)
+            .get_result(&mut conn)?;
+
+        Ok(person)
     }
 }

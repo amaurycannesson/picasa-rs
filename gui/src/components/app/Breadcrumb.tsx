@@ -5,6 +5,7 @@ import {
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
+  BreadcrumbSeparator,
 } from '../ui/breadcrumb';
 
 const Breadcrumb = () => {
@@ -22,12 +23,15 @@ const Breadcrumb = () => {
   return (
     <UiBreadcrumb>
       <BreadcrumbList>
-        {items.map(({ label, href }) => (
-          <BreadcrumbItem key={href} className="hidden md:block">
-            <BreadcrumbLink asChild={true}>
-              <Link to={href}>{label}</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
+        {items.map(({ label, href }, index) => (
+          <>
+            <BreadcrumbItem key={href} className="hidden md:block">
+              <BreadcrumbLink asChild={true}>
+                <Link to={href}>{label}</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {index < items.length - 1 && <BreadcrumbSeparator />}
+          </>
         ))}
       </BreadcrumbList>
     </UiBreadcrumb>

@@ -52,6 +52,14 @@ async listPersons() : Promise<Result<Person[], string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getPerson(id: number) : Promise<Result<Person, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_person", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -69,7 +77,7 @@ export type PaginatedPhotos = { items: Photo[]; total: number; page: number; per
 export type PendingFaceReview = { cluster_id: number; face_ids: number[]; confidence: number; face_count: number }
 export type Person = { id: number; name: string }
 export type Photo = { id: number; path: string; file_name: string; file_size: number; created_at: string; modified_at: string; hash: string | null; camera_make: string | null; camera_model: string | null; lens_model: string | null; orientation: number | null; date_taken_local: string | null; date_taken_utc: string | null; image_width: number | null; image_height: number | null; face_detection_completed: boolean; country_id: number | null; city_id: number | null }
-export type PhotoSearchParams = { text: string | null; threshold: number | null; country: string | null; country_id: number | null; city: string | null; city_id: number | null; date_from: string | null; date_to: string | null; page: number; per_page: number }
+export type PhotoSearchParams = { text: string | null; threshold: number | null; country: string | null; country_id: number | null; city: string | null; city_id: number | null; date_from: string | null; date_to: string | null; person_id: number | null; page: number; per_page: number }
 
 /** tauri-specta globals **/
 

@@ -43,6 +43,7 @@ function SearchPage() {
       date_to: null,
       country_id: null,
       city_id: null,
+      person_id: null,
       page,
       per_page: perPage,
     };
