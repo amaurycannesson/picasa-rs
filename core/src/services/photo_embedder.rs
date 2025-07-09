@@ -5,7 +5,7 @@ use pgvector::Vector;
 
 use crate::{
     models::{PaginationFilter, UpdatedPhoto},
-    repositories::PhotoRepository,
+    repositories::{PhotoFindPathFilters, PhotoRepository},
     services::embedders::image::ImageEmbedder,
     utils::progress_reporter::ProgressReporter,
 };
@@ -34,10 +34,16 @@ impl<R: PhotoRepository, E: ImageEmbedder, P: ProgressReporter> PhotoEmbedderSer
             // Get the next batch of photos without embeddings
             let paginated_paths = self
                 .photo_repository
-                .list_paths_without_embedding(PaginationFilter {
-                    page: 1,
-                    per_page: 20,
-                })
+                .find_path(
+                    PaginationFilter {
+                        page: 1,
+                        per_page: 20,
+                    },
+                    PhotoFindPathFilters {
+                        has_embedding: Some(false),
+                        ..Default::default()
+                    },
+                )
                 .context("Failed to fetch photos without embeddings")?;
 
             // If no more photos to process, break
@@ -102,10 +108,15 @@ mod tests {
     fn test_process_embeddings_no_photos() {
         let mut photo_repository = MockPhotoRepository::new();
         photo_repository
-            .expect_list_paths_without_embedding()
-            .withf(|f: &PaginationFilter| f.page == 1 && f.per_page == 20)
+            .expect_find_path()
+            .withf(|p: &PaginationFilter, f: &PhotoFindPathFilters| {
+                p.page == 1
+                    && p.per_page == 20
+                    && f.has_embedding == Some(false)
+                    && f.has_face_detection_completed == None
+            })
             .times(1)
-            .returning(|_| {
+            .returning(|_, __| {
                 Ok(PaginatedPhotoPaths {
                     items: vec![],
                     total: 0,
@@ -134,10 +145,15 @@ mod tests {
         let mut photo_repository = MockPhotoRepository::new();
 
         photo_repository
-            .expect_list_paths_without_embedding()
-            .withf(|f: &PaginationFilter| f.page == 1 && f.per_page == 20)
+            .expect_find_path()
+            .withf(|p: &PaginationFilter, f: &PhotoFindPathFilters| {
+                p.page == 1
+                    && p.per_page == 20
+                    && f.has_embedding == Some(false)
+                    && f.has_face_detection_completed == None
+            })
             .times(1)
-            .returning(|_| Err(anyhow!("Repository error")));
+            .returning(|_, __| Err(anyhow!("Repository error")));
 
         let mut image_embedder = MockImageEmbedder::new();
 
@@ -161,9 +177,9 @@ mod tests {
         let mut photo_repository = MockPhotoRepository::new();
 
         photo_repository
-            .expect_list_paths_without_embedding()
+            .expect_find_path()
             .times(1)
-            .returning(|_| {
+            .returning(|_, __| {
                 Ok(PaginatedPhotoPaths {
                     items: vec![PhotoPath {
                         id: 1,

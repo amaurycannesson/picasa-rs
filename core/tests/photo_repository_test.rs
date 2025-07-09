@@ -4,7 +4,7 @@ use pgvector::Vector;
 use picasa_core::{
     database::schema,
     models::{NewPhoto, PaginationFilter, UpdatedPhoto},
-    repositories::{PgPhotoRepository, PhotoFindFilters, PhotoRepository},
+    repositories::{PgPhotoRepository, PhotoFindFilters, PhotoFindPathFilters, PhotoRepository},
     services::embedders::text::{ClipTextEmbedder, TextEmbedder},
 };
 use serial_test::serial;
@@ -185,10 +185,16 @@ fn test_should_list_paths_without_embedding() {
 
     let mut repo = PgPhotoRepository::new(pool);
     let paginated_paths = repo
-        .list_paths_without_embedding(PaginationFilter {
-            page: 1,
-            per_page: 10,
-        })
+        .find_path(
+            PaginationFilter {
+                page: 1,
+                per_page: 10,
+            },
+            PhotoFindPathFilters {
+                has_embedding: Some(false),
+                ..Default::default()
+            },
+        )
         .expect("Failed to list paths");
 
     assert_eq!(paginated_paths.items[0].path, "path1");

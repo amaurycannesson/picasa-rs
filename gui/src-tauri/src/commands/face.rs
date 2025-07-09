@@ -1,8 +1,6 @@
 use picasa_core::{
     repositories::{PgFaceRepository, PgPersonRepository},
-    services::{
-        face_recognition::RecognitionAction, FaceRecognitionService, FaceService, PersonService,
-    },
+    services::{face_recognition::RecognitionAction, FaceRecognitionService, FaceService},
     utils::progress_reporter::NoOpProgressReporter,
 };
 use std::path::Path;

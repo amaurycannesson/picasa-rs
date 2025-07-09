@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     models::{NewFace, PaginationFilter, UpdatedPhoto},
-    repositories::{face::repository::FaceRepository, photo::repository::PhotoRepository},
+    repositories::{
+        PhotoFindPathFilters, face::repository::FaceRepository, photo::repository::PhotoRepository,
+    },
     utils::progress_reporter::ProgressReporter,
 };
 
@@ -61,10 +63,16 @@ impl<PR: PhotoRepository, FR: FaceRepository, P: ProgressReporter> FaceDetection
         loop {
             let paginated_paths = self
                 .photo_repository
-                .list_paths_without_face_detection(PaginationFilter {
-                    page: 1,
-                    per_page: 20,
-                })
+                .find_path(
+                    PaginationFilter {
+                        page: 1,
+                        per_page: 20,
+                    },
+                    PhotoFindPathFilters {
+                        has_face_detection_completed: Some(false),
+                        ..Default::default()
+                    },
+                )
                 .context("Failed to fetch photos without face detection")?;
 
             if paginated_paths.items.is_empty() {
@@ -179,10 +187,15 @@ mod tests {
     fn test_detect_faces_no_photos() {
         let mut photo_repository = MockPhotoRepository::new();
         photo_repository
-            .expect_list_paths_without_face_detection()
-            .withf(|f: &PaginationFilter| f.page == 1 && f.per_page == 20)
+            .expect_find_path()
+            .withf(|p: &PaginationFilter, f: &PhotoFindPathFilters| {
+                p.page == 1
+                    && p.per_page == 20
+                    && f.has_embedding == None
+                    && f.has_face_detection_completed == Some(false)
+            })
             .times(1)
-            .returning(|_| {
+            .returning(|_, __| {
                 Ok(PaginatedPhotoPaths {
                     items: vec![],
                     total: 0,
@@ -208,10 +221,15 @@ mod tests {
         let mut photo_repository = MockPhotoRepository::new();
 
         photo_repository
-            .expect_list_paths_without_face_detection()
-            .withf(|f: &PaginationFilter| f.page == 1 && f.per_page == 20)
+            .expect_find_path()
+            .withf(|p: &PaginationFilter, f: &PhotoFindPathFilters| {
+                p.page == 1
+                    && p.per_page == 20
+                    && f.has_embedding == None
+                    && f.has_face_detection_completed == Some(false)
+            })
             .times(1)
-            .returning(|_| Err(anyhow!("Repository error")));
+            .returning(|_, __| Err(anyhow!("Repository error")));
 
         let mut face_repository = MockFaceRepository::new();
         face_repository.expect_insert_one().times(0);

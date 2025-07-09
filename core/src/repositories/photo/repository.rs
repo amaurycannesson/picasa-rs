@@ -11,22 +11,17 @@ use crate::{
     models::{
         NewPhoto, PaginatedPhotoPaths, PaginatedPhotos, PaginationFilter, Photo, UpdatedPhoto,
     },
-    repositories::PhotoFindFilters,
+    repositories::{PhotoFindFilters, PhotoFindPathFilters},
     utils::serialize_float_array,
 };
 
 #[cfg_attr(test, mockall::automock)]
 pub trait PhotoRepository {
-    /// Lists photo paths that do not have embeddings, with pagination.
-    fn list_paths_without_embedding(
+    /// Lists photo paths with pagination.
+    fn find_path(
         &mut self,
         pagination: PaginationFilter,
-    ) -> Result<PaginatedPhotoPaths>;
-
-    /// Lists photo paths that do not have face detection completed, with pagination.
-    fn list_paths_without_face_detection(
-        &mut self,
-        pagination: PaginationFilter,
+        filters: PhotoFindPathFilters,
     ) -> Result<PaginatedPhotoPaths>;
 
     /// Inserts a batch of new photos.
@@ -147,36 +142,6 @@ impl PhotoRepository for PgPhotoRepository {
         })
     }
 
-    fn list_paths_without_embedding(
-        &mut self,
-        pagination: PaginationFilter,
-    ) -> Result<PaginatedPhotoPaths> {
-        let mut conn = self.get_connection()?;
-        let offset = (pagination.page - 1) * pagination.per_page;
-
-        let total: i64 = schema::photos::table
-            .select(diesel::dsl::count_star())
-            .filter(schema::photos::embedding.is_null())
-            .first(&mut conn)?;
-
-        let paths = schema::photos::table
-            .select((schema::photos::id, schema::photos::path))
-            .filter(schema::photos::embedding.is_null())
-            .limit(pagination.per_page)
-            .offset(offset)
-            .load(&mut conn)?;
-
-        let total_pages = (total + pagination.per_page - 1) / pagination.per_page;
-
-        Ok(PaginatedPhotoPaths {
-            items: paths,
-            total,
-            page: pagination.page,
-            per_page: pagination.per_page,
-            total_pages,
-        })
-    }
-
     fn insert_batch(&mut self, new_photos: Vec<NewPhoto>) -> Result<usize> {
         let mut conn = self.get_connection()?;
         use diesel::upsert::excluded;
@@ -205,21 +170,41 @@ impl PhotoRepository for PgPhotoRepository {
             .map_err(Error::from)
     }
 
-    fn list_paths_without_face_detection(
+    fn find_path(
         &mut self,
         pagination: PaginationFilter,
+        filters: PhotoFindPathFilters,
     ) -> Result<PaginatedPhotoPaths> {
         let mut conn = self.get_connection()?;
         let offset = (pagination.page - 1) * pagination.per_page;
 
-        let total: i64 = schema::photos::table
+        let mut count_query = schema::photos::table
             .select(diesel::dsl::count_star())
-            .filter(schema::photos::face_detection_completed.eq(false))
-            .first(&mut conn)?;
+            .into_boxed();
 
-        let paths = schema::photos::table
+        let mut select_query = schema::photos::table
             .select((schema::photos::id, schema::photos::path))
-            .filter(schema::photos::face_detection_completed.eq(false))
+            .into_boxed();
+
+        if let Some(has_face_detection_completed) = filters.has_face_detection_completed {
+            count_query = count_query
+                .filter(schema::photos::face_detection_completed.eq(has_face_detection_completed));
+            select_query = select_query
+                .filter(schema::photos::face_detection_completed.eq(has_face_detection_completed));
+        }
+
+        if let Some(has_embedding) = filters.has_embedding {
+            if has_embedding {
+                count_query = count_query.filter(schema::photos::embedding.is_not_null());
+                select_query = select_query.filter(schema::photos::embedding.is_not_null());
+            } else {
+                count_query = count_query.filter(schema::photos::embedding.is_null());
+                select_query = select_query.filter(schema::photos::embedding.is_null());
+            }
+        }
+
+        let total: i64 = count_query.first(&mut conn)?;
+        let photo_paths = select_query
             .limit(pagination.per_page)
             .offset(offset)
             .load(&mut conn)?;
@@ -227,7 +212,7 @@ impl PhotoRepository for PgPhotoRepository {
         let total_pages = (total + pagination.per_page - 1) / pagination.per_page;
 
         Ok(PaginatedPhotoPaths {
-            items: paths,
+            items: photo_paths,
             total,
             page: pagination.page,
             per_page: pagination.per_page,

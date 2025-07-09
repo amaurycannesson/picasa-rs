@@ -11,3 +11,9 @@ pub struct PhotoFindFilters {
     pub date_from: Option<DateTime<Utc>>,
     pub date_to: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct PhotoFindPathFilters {
+    pub has_face_detection_completed: Option<bool>,
+    pub has_embedding: Option<bool>,
+}
