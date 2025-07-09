@@ -10,6 +10,8 @@ pub struct PhotoFindFilters {
 
     pub date_from: Option<DateTime<Utc>>,
     pub date_to: Option<DateTime<Utc>>,
+
+    pub person_id: Option<i32>,
 }
 
 #[derive(Debug, Clone, Default)]

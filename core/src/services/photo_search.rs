@@ -20,6 +20,8 @@ pub struct PhotoSearchParams {
     pub date_from: Option<String>,
     pub date_to: Option<String>,
 
+    pub person_id: Option<i32>,
+
     pub page: u32,
     pub per_page: u32,
 }
@@ -81,6 +83,8 @@ impl<PR: PhotoRepository, GR: GeoRepository, E: TextEmbedder> PhotoSearchService
                 .context("Failed to parse date_to")?;
             find_filters.date_to = Some(parsed_date);
         }
+
+        find_filters.person_id = search_params.person_id;
 
         let pagination_filter = PaginationFilter {
             page: search_params.page as i64,

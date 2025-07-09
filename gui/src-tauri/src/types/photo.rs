@@ -87,6 +87,8 @@ pub struct PhotoSearchParams {
     pub date_from: Option<String>,
     pub date_to: Option<String>,
 
+    pub person_id: Option<i32>,
+
     pub page: u32,
     pub per_page: u32,
 }
@@ -102,6 +104,7 @@ impl From<services::PhotoSearchParams> for PhotoSearchParams {
             city_id: photo_search_params.city_id,
             date_from: photo_search_params.date_from,
             date_to: photo_search_params.date_to,
+            person_id: photo_search_params.person_id,
             page: photo_search_params.page,
             per_page: photo_search_params.per_page,
         }
@@ -119,6 +122,7 @@ impl From<PhotoSearchParams> for services::PhotoSearchParams {
             city_id: photo_search_params.city_id,
             date_from: photo_search_params.date_from,
             date_to: photo_search_params.date_to,
+            person_id: photo_search_params.person_id,
             page: photo_search_params.page,
             per_page: photo_search_params.per_page,
         }

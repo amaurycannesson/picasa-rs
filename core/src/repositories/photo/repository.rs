@@ -120,6 +120,15 @@ impl PhotoRepository for PgPhotoRepository {
             select_query = select_query.filter(schema::photos::date_taken_utc.le(date_to));
         }
 
+        if let Some(person_id) = filters.person_id {
+            let photo_ids_subquery = schema::faces::table
+                .select(schema::faces::photo_id)
+                .filter(schema::faces::person_id.eq(person_id));
+
+            count_query = count_query.filter(schema::photos::id.eq_any(photo_ids_subquery.clone()));
+            select_query = select_query.filter(schema::photos::id.eq_any(photo_ids_subquery));
+        }
+
         if filters.text_embedding.is_some() {
             sql_query("SET hnsw.ef_search = 80").execute(&mut conn)?;
         }
