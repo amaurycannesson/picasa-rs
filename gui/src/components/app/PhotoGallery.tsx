@@ -43,7 +43,7 @@ export function PhotoGallery({
         {photos.map((p) => (
           <div
             key={p.path}
-            className="aspect-square overflow-hidden rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md"
+            className="aspect-square overflow-hidden rounded-lg shadow-sm transition-all duration-300 hover:scale-105 hover:shadow-lg"
           >
             <PhotoThumbnail photoPath={p.path} />
           </div>
@@ -78,9 +78,7 @@ export function PhotoGallery({
                     pages.push(
                       <PaginationItem key={i}>
                         <PaginationLink isActive={currentPage === i} className="cursor-pointer">
-                          <Link {...getNavigationConfig(i)}>
-                            {i}
-                          </Link>
+                          <Link {...getNavigationConfig(i)}>{i}</Link>
                         </PaginationLink>
                       </PaginationItem>,
                     );
@@ -90,9 +88,7 @@ export function PhotoGallery({
                   pages.push(
                     <PaginationItem key={1}>
                       <PaginationLink isActive={currentPage === 1} className="cursor-pointer">
-                        <Link {...getNavigationConfig(1)}>
-                          1
-                        </Link>
+                        <Link {...getNavigationConfig(1)}>1</Link>
                       </PaginationLink>
                     </PaginationItem>,
                   );
@@ -114,9 +110,7 @@ export function PhotoGallery({
                     pages.push(
                       <PaginationItem key={i}>
                         <PaginationLink isActive={currentPage === i} className="cursor-pointer">
-                          <Link {...getNavigationConfig(i)}>
-                            {i}
-                          </Link>
+                          <Link {...getNavigationConfig(i)}>{i}</Link>
                         </PaginationLink>
                       </PaginationItem>,
                     );
@@ -139,9 +133,7 @@ export function PhotoGallery({
                           isActive={currentPage === totalPages}
                           className="cursor-pointer"
                         >
-                          <Link {...getNavigationConfig(totalPages)}>
-                            {totalPages}
-                          </Link>
+                          <Link {...getNavigationConfig(totalPages)}>{totalPages}</Link>
                         </PaginationLink>
                       </PaginationItem>,
                     );

@@ -1,7 +1,7 @@
-import { invoke } from '@tauri-apps/api/core';
-import { Image } from 'lucide-react';
+import { ImageIcon, ImageOffIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { commands } from '@/bindings';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const PhotoThumbnail: React.FC<{ photoPath: string }> = ({ photoPath }) => {
@@ -11,57 +11,52 @@ const PhotoThumbnail: React.FC<{ photoPath: string }> = ({ photoPath }) => {
 
   useEffect(() => {
     const loadImage = async () => {
-      try {
-        setLoading(true);
-        setError(false);
+      setLoading(true);
+      setError(false);
 
-        // Get image data from Rust (returns Vec<u8>)
-        const imageData: number[] = await invoke('load_photo', {
-          path: photoPath,
-        });
+      const result = await commands.loadPhoto(photoPath);
 
-        // Convert to Blob and create object URL
-        const blob = new Blob([new Uint8Array(imageData)], {
+      if (result.status === 'ok') {
+        const blob = new Blob([new Uint8Array(result.data)], {
           type: 'image/webp',
         });
         const url = URL.createObjectURL(blob);
 
         setImageSrc(url);
-        setLoading(false);
-      } catch (err) {
-        console.error('Failed to load image:', err);
+      } else {
         setError(true);
-        setLoading(false);
       }
+
+      setLoading(false);
     };
 
     loadImage();
 
-    // Cleanup: revoke object URL when component unmounts
     return () => {
       if (imageSrc) {
         URL.revokeObjectURL(imageSrc);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoPath]);
 
   if (loading) {
     return (
-      <Skeleton className="w-full h-full flex items-center justify-center">
-        <Image className="h-8 w-8 text-muted-foreground" />
+      <Skeleton className="flex h-full w-full items-center justify-center">
+        <ImageIcon className="text-muted-foreground h-8 w-8" />
       </Skeleton>
     );
   }
 
   if (error) {
     return (
-      <div className="w-full h-full bg-red-100 flex items-center justify-center">
-        Error loading image
+      <div className="flex h-full w-full items-center justify-center bg-gray-50">
+        <ImageOffIcon className="text-muted-foreground h-8 w-8" />
       </div>
     );
   }
 
-  return <img src={imageSrc} alt="Photo thumbnail" className="w-full h-full object-cover" />;
+  return <img src={imageSrc} alt="Photo thumbnail" className="h-full w-full object-cover" />;
 };
 
 export { PhotoThumbnail };

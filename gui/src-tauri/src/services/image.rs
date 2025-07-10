@@ -9,15 +9,8 @@ pub struct ImageService {
     thumbnail_cache: RwLock<LruCache<String, Vec<u8>>>,
     // Cache directory for generated thumbnails
     cache_dir: PathBuf,
-    // Thumbnail sizes
-    sizes: ImageSizes,
-}
-
-#[derive(Clone)]
-pub struct ImageSizes {
-    pub thumbnail: (u32, u32), // 150x150 for grid view
-    pub preview: (u32, u32),   // 400x400 for detail view
-    pub medium: (u32, u32),    // 800x600 for modal view
+    // Thumbnail size
+    thumbnail_width: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -33,15 +26,11 @@ impl ImageService {
         Self {
             thumbnail_cache: RwLock::new(LruCache::new(NonZero::new(500).unwrap())), // Keep 500 thumbnails in memory
             cache_dir,
-            sizes: ImageSizes {
-                thumbnail: (150, 150),
-                preview: (400, 400),
-                medium: (800, 600),
-            },
+            thumbnail_width: 150,
         }
     }
 
-    // Generate and cache thumbnail if it doesn't exist
+    /// Generate and cache thumbnail if it doesn't exist
     pub async fn get_thumbnail(&self, photo_path: &str) -> anyhow::Result<Vec<u8>> {
         let cache_key = format!("thumb_{}", self.hash_path(photo_path));
 
@@ -69,7 +58,7 @@ impl ImageService {
 
         // Generate thumbnail
         let data = self
-            .generate_thumbnail(photo_path, self.sizes.thumbnail)
+            .generate_thumbnail(photo_path, self.thumbnail_width)
             .await?;
 
         // Save to disk cache
@@ -85,13 +74,14 @@ impl ImageService {
         Ok(data)
     }
 
-    async fn generate_thumbnail(
-        &self,
-        photo_path: &str,
-        size: (u32, u32),
-    ) -> anyhow::Result<Vec<u8>> {
+    async fn generate_thumbnail(&self, photo_path: &str, width: u32) -> anyhow::Result<Vec<u8>> {
         let img = self.load_image(photo_path)?;
-        let thumbnail = img.thumbnail(size.0, size.1);
+        let (original_width, original_height) = img.dimensions();
+
+        // Calculate proportional height based on desired width
+        let height = (width as f32 * original_height as f32 / original_width as f32) as u32;
+
+        let thumbnail = img.thumbnail(width, height);
 
         let mut buffer = Vec::new();
         thumbnail.write_to(&mut std::io::Cursor::new(&mut buffer), ImageFormat::WebP)?;
@@ -145,14 +135,12 @@ impl ImageService {
     pub fn crop_image(&self, photo_path: String, bbox: BoundingBox) -> anyhow::Result<Vec<u8>> {
         let img = self.load_image(&photo_path)?;
 
-        // Ensure coordinates are within image bounds
         let (img_width, img_height) = img.dimensions();
         let x = bbox.x.max(0) as u32;
         let y = bbox.y.max(0) as u32;
         let width = bbox.width.max(0) as u32;
         let height = bbox.height.max(0) as u32;
 
-        // Clamp dimensions to image bounds
         let crop_width = width.min(img_width.saturating_sub(x));
         let crop_height = height.min(img_height.saturating_sub(y));
 
