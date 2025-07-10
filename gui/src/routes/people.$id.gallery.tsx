@@ -1,23 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { commands, PhotoSearchParams } from '@/bindings';
+import { commands } from '@/bindings';
 import { PhotoGallery } from '@/components/app/PhotoGallery';
+import { photoSearchSchema } from '@/photoSearch';
 
 export const Route = createFileRoute('/people/$id/gallery')({
   component: GalleryPage,
-  validateSearch: (search: Record<string, unknown>): PhotoSearchParams => ({
-    page: Number(search?.page ?? 1),
-    per_page: Number(search?.per_page ?? 20),
-    text: null,
-    threshold: null,
-    country: null,
-    city: null,
-    date_from: null,
-    date_to: null,
-    country_id: null,
-    city_id: null,
-    person_id: null,
-  }),
+  validateSearch: photoSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: async ({ params: { id }, deps }) => {
     const params = {

@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/carousel';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { DEFAULT_PHOTO_SEARCH } from '@/photoSearch';
 
 export const Route = createFileRoute('/people/')({
   component: RouteComponent,
@@ -90,19 +91,7 @@ const _Person = ({ person }: { person: Person }) => {
       <Link
         to={`/people/$id/gallery`}
         params={{ id: person.id.toString() }}
-        search={{
-          page: 1,
-          per_page: 10,
-          text: null,
-          threshold: null,
-          country: null,
-          city: null,
-          date_from: null,
-          date_to: null,
-          country_id: null,
-          city_id: null,
-          person_id: null,
-        }}
+        search={DEFAULT_PHOTO_SEARCH}
       >
         <Avatar className="size-16">
           <AvatarFallback className="text-2xl">
