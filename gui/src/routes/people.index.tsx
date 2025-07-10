@@ -87,7 +87,23 @@ const People = ({ people }: { people: Person[] | null }) => {
 const _Person = ({ person }: { person: Person }) => {
   return (
     <div className="flex flex-col items-center space-y-2 py-2">
-      <Link to={`/people/$id`} params={{ id: person.id.toString() }}>
+      <Link
+        to={`/people/$id/gallery`}
+        params={{ id: person.id.toString() }}
+        search={{
+          page: 1,
+          per_page: 10,
+          text: null,
+          threshold: null,
+          country: null,
+          city: null,
+          date_from: null,
+          date_to: null,
+          country_id: null,
+          city_id: null,
+          person_id: null,
+        }}
+      >
         <Avatar className="size-16">
           <AvatarFallback className="text-2xl">
             {person.name.charAt(0).toUpperCase()}
