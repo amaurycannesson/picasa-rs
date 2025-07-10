@@ -61,9 +61,9 @@ export function PhotoGallery({
             <PaginationContent>
               <PaginationItem>
                 {currentPage > 1 ? (
-                  <Link {...getNavigationConfig(currentPage - 1)}>
-                    <PaginationPrevious />
-                  </Link>
+                  <PaginationPrevious asChild>
+                    <Link {...getNavigationConfig(currentPage - 1)} />
+                  </PaginationPrevious>
                 ) : (
                   <PaginationPrevious className="pointer-events-none opacity-50" />
                 )}
@@ -77,7 +77,11 @@ export function PhotoGallery({
                   for (let i = 1; i <= totalPages; i++) {
                     pages.push(
                       <PaginationItem key={i}>
-                        <PaginationLink isActive={currentPage === i} className="cursor-pointer">
+                        <PaginationLink
+                          asChild={true}
+                          isActive={currentPage === i}
+                          className="cursor-pointer"
+                        >
                           <Link {...getNavigationConfig(i)}>{i}</Link>
                         </PaginationLink>
                       </PaginationItem>,
@@ -87,7 +91,11 @@ export function PhotoGallery({
                   // Show first page
                   pages.push(
                     <PaginationItem key={1}>
-                      <PaginationLink isActive={currentPage === 1} className="cursor-pointer">
+                      <PaginationLink
+                        asChild={true}
+                        isActive={currentPage === 1}
+                        className="cursor-pointer"
+                      >
                         <Link {...getNavigationConfig(1)}>1</Link>
                       </PaginationLink>
                     </PaginationItem>,
@@ -109,7 +117,11 @@ export function PhotoGallery({
                   for (let i = start; i <= end; i++) {
                     pages.push(
                       <PaginationItem key={i}>
-                        <PaginationLink isActive={currentPage === i} className="cursor-pointer">
+                        <PaginationLink
+                          asChild={true}
+                          isActive={currentPage === i}
+                          className="cursor-pointer"
+                        >
                           <Link {...getNavigationConfig(i)}>{i}</Link>
                         </PaginationLink>
                       </PaginationItem>,
@@ -130,6 +142,7 @@ export function PhotoGallery({
                     pages.push(
                       <PaginationItem key={totalPages}>
                         <PaginationLink
+                          asChild={true}
                           isActive={currentPage === totalPages}
                           className="cursor-pointer"
                         >
@@ -145,9 +158,9 @@ export function PhotoGallery({
 
               <PaginationItem>
                 {currentPage < totalPages ? (
-                  <Link {...getNavigationConfig(currentPage + 1)}>
-                    <PaginationNext />
-                  </Link>
+                  <PaginationNext asChild>
+                    <Link {...getNavigationConfig(currentPage + 1)} />
+                  </PaginationNext>
                 ) : (
                   <PaginationNext className="pointer-events-none opacity-50" />
                 )}

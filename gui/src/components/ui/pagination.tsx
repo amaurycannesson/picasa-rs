@@ -1,3 +1,4 @@
+import { Slot } from '@radix-ui/react-slot';
 import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from 'lucide-react';
 import * as React from 'react';
 
@@ -31,13 +32,22 @@ function PaginationItem({ ...props }: React.ComponentProps<'li'>) {
 }
 
 type PaginationLinkProps = {
+  asChild?: boolean;
   isActive?: boolean;
 } & Pick<React.ComponentProps<typeof Button>, 'size'> &
   React.ComponentProps<'a'>;
 
-function PaginationLink({ className, isActive, size = 'icon', ...props }: PaginationLinkProps) {
+function PaginationLink({
+  className,
+  asChild,
+  isActive,
+  size = 'icon',
+  ...props
+}: PaginationLinkProps) {
+  const Comp = asChild ? Slot : 'a';
+
   return (
-    <a
+    <Comp
       aria-current={isActive ? 'page' : undefined}
       data-slot="pagination-link"
       data-active={isActive}
@@ -53,7 +63,14 @@ function PaginationLink({ className, isActive, size = 'icon', ...props }: Pagina
   );
 }
 
-function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
+function PaginationPrevious({ className, children, ...props }: React.ComponentProps<typeof PaginationLink>) {
+  const content = (
+    <>
+      <ChevronLeftIcon className="h-4 w-4" />
+      <span className="hidden sm:block">Previous</span>
+    </>
+  );
+
   return (
     <PaginationLink
       aria-label="Go to previous page"
@@ -61,13 +78,25 @@ function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof
       className={cn('gap-1 px-2.5 sm:pl-2.5', className)}
       {...props}
     >
-      <ChevronLeftIcon />
-      <span className="hidden sm:block">Previous</span>
+      {children ? (
+        React.cloneElement(children as React.ReactElement, {
+          children: content,
+        })
+      ) : (
+        content
+      )}
     </PaginationLink>
   );
 }
 
-function PaginationNext({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
+function PaginationNext({ className, children, ...props }: React.ComponentProps<typeof PaginationLink>) {
+  const content = (
+    <>
+      <span className="hidden sm:block">Next</span>
+      <ChevronRightIcon className="h-4 w-4" />
+    </>
+  );
+
   return (
     <PaginationLink
       aria-label="Go to next page"
@@ -75,8 +104,13 @@ function PaginationNext({ className, ...props }: React.ComponentProps<typeof Pag
       className={cn('gap-1 px-2.5 sm:pr-2.5', className)}
       {...props}
     >
-      <span className="hidden sm:block">Next</span>
-      <ChevronRightIcon />
+      {children ? (
+        React.cloneElement(children as React.ReactElement, {
+          children: content,
+        })
+      ) : (
+        content
+      )}
     </PaginationLink>
   );
 }
