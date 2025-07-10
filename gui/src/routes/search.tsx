@@ -1,60 +1,66 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { commands, PaginatedPhotos } from '@/bindings';
-import { PhotoThumbnail } from '@/components/app/PhotoThumbnail';
+import { commands, PhotoSearchParams } from '@/bindings';
+import { PhotoGallery } from '@/components/app/PhotoGallery';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
-import { useSidebar } from '@/components/ui/sidebar';
 
 export const Route = createFileRoute('/search')({
   component: SearchPage,
-  loader: () => {
+  validateSearch: (search: Record<string, unknown>): PhotoSearchParams => ({
+    page: Number(search?.page ?? 1),
+    per_page: Number(search?.per_page ?? 20),
+    text: (search?.text as string) || null,
+    threshold: null,
+    country: (search?.country as string) || null,
+    city: (search?.city as string) || null,
+    date_from: null,
+    date_to: null,
+    country_id: null,
+    city_id: null,
+    person_id: null,
+  }),
+  loaderDeps: ({ search }) => search,
+  loader: async ({ deps }) => {
+    const result = await commands.searchPhotos(deps);
+
+    if (result.status === 'error') throw new Error(result.error);
+
     return {
       breadcrumb: 'Photo search',
+      paginatedPhotos: result.data,
     };
   },
+  pendingComponent: () => <>Loading...</>,
 });
 
 function SearchPage() {
-  const [paginatedPhotos, setPaginatedPhotos] = useState<PaginatedPhotos | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [perPage] = useState(20);
-  const [searchText, setSearchText] = useState('');
-  const [searchCountry, setSearchCountry] = useState('');
-  const [searchCity, setSearchCity] = useState('');
-  const { open, isMobile } = useSidebar();
+  const search = Route.useSearch();
+  const { paginatedPhotos } = Route.useLoaderData();
+  const navigate = Route.useNavigate();
+  const [searchText, setSearchText] = useState(search.text || '');
+  const [searchCountry, setSearchCountry] = useState(search.country || '');
+  const [searchCity, setSearchCity] = useState(search.city || '');
 
-  async function search(page: number = 1) {
-    const params = {
-      text: searchText || null,
-      threshold: null,
-      country: searchCountry || null,
-      city: searchCity || null,
-      date_from: null,
-      date_to: null,
-      country_id: null,
-      city_id: null,
-      person_id: null,
-      page,
-      per_page: perPage,
-    };
-
-    const result = await commands.searchPhotos(params);
-
-    if (result.status === 'ok') {
-      setPaginatedPhotos(result.data);
-      setCurrentPage(page);
-    }
+  function handleSearch() {
+    navigate({
+      to: '/search',
+      search: {
+        ...search,
+        text: searchText || null,
+        country: searchCountry || null,
+        city: searchCity || null,
+        page: 1,
+      },
+    });
   }
+
+  const getNavigationConfig = (page: number) => ({
+    to: '/search' as const,
+    search: { ...search, page },
+  });
+
   return (
     <div>
       <div className="mb-4 flex gap-2">
@@ -76,74 +82,15 @@ function SearchPage() {
           onChange={(e) => setSearchCity(e.target.value)}
           className="flex-1"
         />
-        <Button onClick={() => search(1)}>Search</Button>
+        <Button onClick={handleSearch}>Search</Button>
       </div>
 
-      {paginatedPhotos && paginatedPhotos.items.length > 0 ? (
-        <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
-            {paginatedPhotos.items.map((p) => (
-              <div
-                key={p.path}
-                className="aspect-square overflow-hidden rounded-lg bg-white shadow-sm transition-shadow hover:shadow-md"
-              >
-                <PhotoThumbnail photoPath={p.path} />
-              </div>
-            ))}
-          </div>
-
-          {paginatedPhotos.total_pages > 1 && (
-            <div
-              className="fixed bottom-4 left-1/2 z-10 -translate-x-1/2 transform rounded-lg border p-2 shadow-lg"
-              style={{
-                marginLeft: open && !isMobile ? '7rem' : '0',
-              }}
-            >
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => currentPage > 1 && search(currentPage - 1)}
-                      className={
-                        currentPage <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'
-                      }
-                    />
-                  </PaginationItem>
-
-                  {Array.from({ length: paginatedPhotos.total_pages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => search(page)}
-                          isActive={currentPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    ),
-                  )}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        currentPage < paginatedPhotos.total_pages && search(currentPage + 1)
-                      }
-                      className={
-                        currentPage >= paginatedPhotos.total_pages
-                          ? 'pointer-events-none opacity-50'
-                          : 'cursor-pointer'
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
-        </>
-      ) : (
-        <p className="text-gray-500">No photos.</p>
-      )}
+      <PhotoGallery
+        photos={paginatedPhotos?.items || []}
+        currentPage={search.page}
+        totalPages={paginatedPhotos?.total_pages || 0}
+        getNavigationConfig={getNavigationConfig}
+      />
     </div>
   );
 }
