@@ -144,7 +144,8 @@ impl PhotoRepository for PgPhotoRepository {
 
         let total: i64 = count_query.first(&mut conn)?;
         let photos = select_query
-            .then_order_by(schema::photos::id.asc())
+            .then_order_by(schema::photos::date_taken_utc.desc().nulls_last())
+            .then_order_by(schema::photos::created_at.desc())
             .limit(pagination.per_page)
             .offset(offset)
             .load(&mut conn)?;
@@ -250,34 +251,34 @@ impl PhotoRepository for PgPhotoRepository {
 
     fn find_country_ids(&mut self) -> Result<Vec<i32>> {
         let mut conn = self.get_connection()?;
-        
+
         let country_ids: Vec<Option<i32>> = schema::photos::table
             .select(schema::photos::country_id)
             .distinct()
             .load(&mut conn)?;
-        
+
         Ok(country_ids.into_iter().flatten().collect())
     }
 
     fn find_city_ids(&mut self) -> Result<Vec<i32>> {
         let mut conn = self.get_connection()?;
-        
+
         let city_ids: Vec<Option<i32>> = schema::photos::table
             .select(schema::photos::city_id)
             .distinct()
             .load(&mut conn)?;
-        
+
         Ok(city_ids.into_iter().flatten().collect())
     }
 
     fn find_person_ids(&mut self) -> Result<Vec<i32>> {
         let mut conn = self.get_connection()?;
-        
+
         let person_ids: Vec<Option<i32>> = schema::faces::table
             .select(schema::faces::person_id)
             .distinct()
             .load(&mut conn)?;
-        
+
         Ok(person_ids.into_iter().flatten().collect())
     }
 }
