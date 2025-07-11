@@ -124,7 +124,24 @@ impl ImageService {
         let interleaved_plane = planes
             .interleaved
             .ok_or_else(|| anyhow::anyhow!("No interleaved plane available"))?;
-        let img_data = interleaved_plane.data.to_vec();
+
+        let stride = interleaved_plane.stride as u32;
+        let expected_row_size = width * 3; // 3 bytes per pixel (RGB)
+
+        let mut img_data = Vec::with_capacity((width * height * 3) as usize);
+
+        // Handle row padding by copying only the actual image data
+        if stride == expected_row_size {
+            // No padding, can use data directly
+            img_data = interleaved_plane.data.to_vec();
+        } else {
+            // Has padding, need to copy row by row
+            for row in 0..height {
+                let row_start = (row * stride) as usize;
+                let row_end = row_start + expected_row_size as usize;
+                img_data.extend_from_slice(&interleaved_plane.data[row_start..row_end]);
+            }
+        }
 
         let image_buffer = image::RgbImage::from_raw(width, height, img_data)
             .ok_or_else(|| anyhow::anyhow!("Failed to create image buffer from HEIF data"))?;
