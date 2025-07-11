@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { commands } from '@/bindings';
+import { DatePicker } from '@/components/app/DatePicker';
 import { ErrorMessage } from '@/components/app/ErrorMessage';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
@@ -22,6 +23,8 @@ const searchFormSchema = z.object({
   country_id: z.string().optional(),
   city_id: z.string().optional(),
   person_id: z.string().optional(),
+  date_from: z.string().optional(),
+  date_to: z.string().optional(),
 });
 
 type SearchFormValues = z.infer<typeof searchFormSchema>;
@@ -54,6 +57,8 @@ function SearchPage() {
       country_id: '',
       city_id: '',
       person_id: '',
+      date_from: '',
+      date_to: '',
     },
   });
 
@@ -69,12 +74,12 @@ function SearchPage() {
   return (
     <div>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-4 gap-2 pb-4">
           <FormField
             control={form.control}
             name="text"
             render={({ field }) => (
-              <FormItem className="flex-1">
+              <FormItem>
                 <FormControl>
                   <Input placeholder="Search..." {...field} />
                 </FormControl>
@@ -85,7 +90,7 @@ function SearchPage() {
             control={form.control}
             name="country_id"
             render={({ field }) => (
-              <FormItem className="flex-1">
+              <FormItem>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="w-full">
@@ -107,7 +112,7 @@ function SearchPage() {
             control={form.control}
             name="city_id"
             render={({ field }) => (
-              <FormItem className="flex-1">
+              <FormItem>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="w-full">
@@ -129,7 +134,7 @@ function SearchPage() {
             control={form.control}
             name="person_id"
             render={({ field }) => (
-              <FormItem className="flex-1">
+              <FormItem>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="w-full">
@@ -147,15 +152,45 @@ function SearchPage() {
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="date_from"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="From date..."
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="date_to"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="To date..."
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
           <Button type="submit">Search</Button>
+          <button
+            type="button"
+            onClick={() => form.reset()}
+            className="flex items-center justify-start text-sm text-gray-500 underline hover:text-gray-700"
+          >
+            Reset
+          </button>
         </form>
-        <button
-          type="button"
-          onClick={() => form.reset()}
-          className="pb-4 text-sm text-gray-500 underline hover:text-gray-700"
-        >
-          Reset
-        </button>
       </Form>
       <Outlet />
     </div>

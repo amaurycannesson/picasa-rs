@@ -21,8 +21,16 @@ export const photoSearchSchema = z.object({
     .nullable()
     .default(null)
     .transform((val) => (val === 0 ? null : val)),
-  date_from: z.string().nullable().default(null),
-  date_to: z.string().nullable().default(null),
+  date_from: z
+    .string()
+    .nullable()
+    .default(null)
+    .transform((val) => (val === '' ? null : val)),
+  date_to: z
+    .string()
+    .nullable()
+    .default(null)
+    .transform((val) => (val === '' ? null : val)),
   person_id: z.coerce
     .number()
     .nullable()
