@@ -213,6 +213,7 @@ impl Cli {
 
         let mut photo_repository = PgPhotoRepository::new(pool.clone());
         let geo_repository = PgGeoRepository::new(pool.clone());
+        let person_repository = PgPersonRepository::new(pool.clone());
 
         match self.command {
             Commands::Scan {
@@ -305,8 +306,12 @@ impl Cli {
                 per_page,
             } => {
                 let text_embedder = ClipTextEmbedder::new()?;
-                let mut photo_search =
-                    PhotoSearchService::new(photo_repository, geo_repository, text_embedder);
+                let mut photo_search = PhotoSearchService::new(
+                    photo_repository,
+                    geo_repository,
+                    person_repository,
+                    text_embedder,
+                );
 
                 let search_params = PhotoSearchParams {
                     text,
