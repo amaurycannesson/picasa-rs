@@ -21,6 +21,8 @@ const Breadcrumb = () => {
       };
     });
 
+  const hasGallery = matches[matches.length - 1].routeId.endsWith('/gallery');
+
   return (
     <UiBreadcrumb>
       <BreadcrumbList>
@@ -28,7 +30,9 @@ const Breadcrumb = () => {
           <Fragment key={href}>
             <BreadcrumbItem className="hidden md:block">
               <BreadcrumbLink asChild={true}>
-                <Link to={href}>{label}</Link>
+                <Link to={index === items.length - 1 && hasGallery ? `${href}/gallery` : href}>
+                  {label}
+                </Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             {index < items.length - 1 && <BreadcrumbSeparator />}

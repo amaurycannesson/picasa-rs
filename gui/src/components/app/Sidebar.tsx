@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 
 const mainMenuItems = [
-  { icon: Search, label: 'Photos', path: '/search' },
+  { icon: Search, label: 'Photos', path: '/search/gallery' },
   { icon: Album, label: 'Albums', path: '/' },
   { icon: LucideUser, label: 'People', path: '/people' },
   { icon: MapPin, label: 'Places', path: '/' },
