@@ -6,17 +6,12 @@ import { Loader } from '@/components/app/Loader';
 import { PhotoGallery } from '@/components/app/PhotoGallery';
 import { photoSearchSchema } from '@/photoSearch';
 
-export const Route = createFileRoute('/people/$id/gallery')({
+export const Route = createFileRoute('/search/gallery')({
   component: GalleryPage,
   validateSearch: photoSearchSchema,
   loaderDeps: ({ search }) => search,
-  loader: async ({ params: { id }, deps }) => {
-    const params = {
-      ...deps,
-      person_id: parseInt(id),
-    };
-
-    const result = await commands.searchPhotos(params);
+  loader: async ({ deps }) => {
+    const result = await commands.searchPhotos(deps);
 
     if (result.status === 'error') throw new Error(result.error);
 

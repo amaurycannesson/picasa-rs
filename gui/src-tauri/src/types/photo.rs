@@ -2,6 +2,8 @@ use picasa_core::{models, services};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::types::{CityName, CountryName, Person};
+
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct Photo {
     pub id: i32,
@@ -125,6 +127,27 @@ impl From<PhotoSearchParams> for services::PhotoSearchParams {
             person_id: photo_search_params.person_id,
             page: photo_search_params.page,
             per_page: photo_search_params.per_page,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct PhotoSearchOptions {
+    pub cities: Vec<CityName>,
+    pub countries: Vec<CountryName>,
+    pub persons: Vec<Person>,
+}
+
+impl From<services::photo_search::PhotoSearchOptions> for PhotoSearchOptions {
+    fn from(options: services::photo_search::PhotoSearchOptions) -> Self {
+        Self {
+            cities: options.cities.into_iter().map(CityName::from).collect(),
+            countries: options
+                .countries
+                .into_iter()
+                .map(CountryName::from)
+                .collect(),
+            persons: options.persons.into_iter().map(Person::from).collect(),
         }
     }
 }

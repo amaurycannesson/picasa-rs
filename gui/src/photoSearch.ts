@@ -3,15 +3,31 @@ import { z } from 'zod';
 import { PhotoSearchParams } from './bindings';
 
 export const photoSearchSchema = z.object({
-  text: z.string().min(3).nullable().default(null),
+  text: z
+    .string()
+    .nullable()
+    .default(null)
+    .transform((val) => (val === '' ? null : val)),
   threshold: z.number().min(0).max(1).nullable().default(null),
-  country: z.string().min(3).nullable().default(null),
-  country_id: z.number().min(0).nullable().default(null),
-  city: z.string().min(3).nullable().default(null),
-  city_id: z.number().min(0).nullable().default(null),
-  date_from: z.string().min(3).nullable().default(null),
-  date_to: z.string().min(3).nullable().default(null),
-  person_id: z.number().min(0).nullable().default(null),
+  country: z.string().nullable().default(null),
+  country_id: z.coerce
+    .number()
+    .nullable()
+    .default(null)
+    .transform((val) => (val === 0 ? null : val)),
+  city: z.string().nullable().default(null),
+  city_id: z.coerce
+    .number()
+    .nullable()
+    .default(null)
+    .transform((val) => (val === 0 ? null : val)),
+  date_from: z.string().nullable().default(null),
+  date_to: z.string().nullable().default(null),
+  person_id: z.coerce
+    .number()
+    .nullable()
+    .default(null)
+    .transform((val) => (val === 0 ? null : val)),
   page: z.number().min(1).default(1),
   per_page: z.number().min(1).default(15),
 });

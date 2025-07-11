@@ -1,6 +1,6 @@
 use diesel::{Queryable, Selectable};
 
-#[derive(Queryable, Selectable, Debug, Clone)]
+#[derive(Queryable, Selectable, Debug)]
 #[diesel(table_name = crate::database::schema::cities)]
 pub struct City {
     pub geonameid: i32,
@@ -23,4 +23,12 @@ pub struct City {
     pub timezone: Option<String>,
     pub modification_date: Option<String>,
     pub geom: Option<postgis_diesel::types::Point>,
+}
+
+#[derive(Queryable, Selectable, Debug)]
+#[diesel(table_name = crate::database::schema::cities)]
+pub struct CityName {
+    #[diesel(column_name = geonameid)]
+    pub id: i32,
+    pub name: String,
 }

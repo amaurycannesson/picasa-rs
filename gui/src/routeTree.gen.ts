@@ -13,6 +13,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as PeopleRouteImport } from './routes/people'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PeopleIndexRouteImport } from './routes/people.index'
+import { Route as SearchGalleryRouteImport } from './routes/search.gallery'
 import { Route as PeopleIdRouteImport } from './routes/people.$id'
 import { Route as PeopleIdGalleryRouteImport } from './routes/people.$id.gallery'
 
@@ -36,6 +37,11 @@ const PeopleIndexRoute = PeopleIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PeopleRoute,
 } as any)
+const SearchGalleryRoute = SearchGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => SearchRoute,
+} as any)
 const PeopleIdRoute = PeopleIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -50,15 +56,17 @@ const PeopleIdGalleryRoute = PeopleIdGalleryRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/people': typeof PeopleRouteWithChildren
-  '/search': typeof SearchRoute
+  '/search': typeof SearchRouteWithChildren
   '/people/$id': typeof PeopleIdRouteWithChildren
+  '/search/gallery': typeof SearchGalleryRoute
   '/people/': typeof PeopleIndexRoute
   '/people/$id/gallery': typeof PeopleIdGalleryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/search': typeof SearchRoute
+  '/search': typeof SearchRouteWithChildren
   '/people/$id': typeof PeopleIdRouteWithChildren
+  '/search/gallery': typeof SearchGalleryRoute
   '/people': typeof PeopleIndexRoute
   '/people/$id/gallery': typeof PeopleIdGalleryRoute
 }
@@ -66,8 +74,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/people': typeof PeopleRouteWithChildren
-  '/search': typeof SearchRoute
+  '/search': typeof SearchRouteWithChildren
   '/people/$id': typeof PeopleIdRouteWithChildren
+  '/search/gallery': typeof SearchGalleryRoute
   '/people/': typeof PeopleIndexRoute
   '/people/$id/gallery': typeof PeopleIdGalleryRoute
 }
@@ -78,16 +87,24 @@ export interface FileRouteTypes {
     | '/people'
     | '/search'
     | '/people/$id'
+    | '/search/gallery'
     | '/people/'
     | '/people/$id/gallery'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/search' | '/people/$id' | '/people' | '/people/$id/gallery'
+  to:
+    | '/'
+    | '/search'
+    | '/people/$id'
+    | '/search/gallery'
+    | '/people'
+    | '/people/$id/gallery'
   id:
     | '__root__'
     | '/'
     | '/people'
     | '/search'
     | '/people/$id'
+    | '/search/gallery'
     | '/people/'
     | '/people/$id/gallery'
   fileRoutesById: FileRoutesById
@@ -95,7 +112,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PeopleRoute: typeof PeopleRouteWithChildren
-  SearchRoute: typeof SearchRoute
+  SearchRoute: typeof SearchRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -127,6 +144,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/people/'
       preLoaderRoute: typeof PeopleIndexRouteImport
       parentRoute: typeof PeopleRoute
+    }
+    '/search/gallery': {
+      id: '/search/gallery'
+      path: '/gallery'
+      fullPath: '/search/gallery'
+      preLoaderRoute: typeof SearchGalleryRouteImport
+      parentRoute: typeof SearchRoute
     }
     '/people/$id': {
       id: '/people/$id'
@@ -170,10 +194,21 @@ const PeopleRouteChildren: PeopleRouteChildren = {
 const PeopleRouteWithChildren =
   PeopleRoute._addFileChildren(PeopleRouteChildren)
 
+interface SearchRouteChildren {
+  SearchGalleryRoute: typeof SearchGalleryRoute
+}
+
+const SearchRouteChildren: SearchRouteChildren = {
+  SearchGalleryRoute: SearchGalleryRoute,
+}
+
+const SearchRouteWithChildren =
+  SearchRoute._addFileChildren(SearchRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PeopleRoute: PeopleRouteWithChildren,
-  SearchRoute: SearchRoute,
+  SearchRoute: SearchRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

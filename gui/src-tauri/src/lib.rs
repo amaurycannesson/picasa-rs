@@ -24,6 +24,7 @@ pub fn run() {
     let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
         commands::photo::search_photos,
         commands::photo::load_photo,
+        commands::photo::get_search_options,
         commands::face::get_pending_manual_reviews,
         commands::face::load_face_image,
         commands::person::create_person_from_faces,

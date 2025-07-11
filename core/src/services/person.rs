@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 
 use crate::{
     models::{NewPerson, Person, UpdatedFace},
-    repositories::{FaceRepository, PersonRepository},
+    repositories::{FaceRepository, FindPersonFilters, PersonRepository},
 };
 
 pub struct PersonService<PR: PersonRepository, FR: FaceRepository> {
@@ -42,7 +42,7 @@ impl<PR: PersonRepository, FR: FaceRepository> PersonService<PR, FR> {
 
     pub fn list(&mut self) -> Result<Vec<Person>> {
         self.person_repository
-            .find_many()
+            .find_many(FindPersonFilters::default())
             .context("Failed to retrieve persons")
     }
 

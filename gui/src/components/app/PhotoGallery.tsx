@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useSearch } from '@tanstack/react-router';
 
 import { PhotoThumbnail } from '@/components/app/PhotoThumbnail';
 import {
@@ -12,26 +12,24 @@ import {
 } from '@/components/ui/pagination';
 import { useSidebar } from '@/components/ui/sidebar';
 
-export interface NavigationConfig {
-  to: string;
-  params?: Record<string, string | number>;
-  search: Record<string, string | number | null>;
-}
-
 export interface PhotoGalleryProps {
   photos: Array<{ path: string }>;
-  currentPage: number;
   totalPages: number;
-  getNavigationConfig: (page: number) => NavigationConfig;
 }
 
 export function PhotoGallery({
   photos,
-  currentPage,
   totalPages,
-  getNavigationConfig,
 }: PhotoGalleryProps) {
   const { open, isMobile } = useSidebar();
+  const search = useSearch({ strict: false });
+
+  const currentPage = search.page || 1;
+
+  const getNavigationConfig = (page: number) => ({
+    to: '.' as const,
+    search: { ...search, page },
+  });
 
   if (!photos || photos.length === 0) {
     return <p className="text-gray-500">No photos.</p>;

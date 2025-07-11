@@ -7,8 +7,8 @@ pub mod pagination;
 pub mod person;
 pub mod photo;
 
-pub use city::City;
-pub use country::Country;
+pub use city::{City, CityName};
+pub use country::{Country, CountryName};
 pub use new_photo::NewPhoto;
 pub use pagination::{PaginatedResult, PaginationFilter};
 pub use photo::{PaginatedPhotoPaths, PaginatedPhotos, Photo, PhotoPath, UpdatedPhoto};

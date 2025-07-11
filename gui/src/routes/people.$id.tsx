@@ -1,8 +1,7 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { AlertCircleIcon } from 'lucide-react';
 
 import { commands } from '@/bindings';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ErrorMessage } from '@/components/app/ErrorMessage';
 
 export const Route = createFileRoute('/people/$id')({
   component: RouteComponent,
@@ -16,24 +15,14 @@ export const Route = createFileRoute('/people/$id')({
       breadcrumb: person.data.name,
     };
   },
-  errorComponent: ({ error }: { error: { message: string } }) => {
-    return (
-      <Alert variant="destructive">
-        <AlertCircleIcon />
-        <AlertTitle>Error while loading person</AlertTitle>
-        <AlertDescription>
-          <p>{error.message}</p>
-        </AlertDescription>
-      </Alert>
-    );
-  },
+  errorComponent: ErrorMessage,
 });
 
 function RouteComponent() {
   const { person } = Route.useLoaderData();
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">{person.data.name}</h1>
+      <h1 className="mb-4 text-2xl font-bold">{person.data.name}</h1>
       <Outlet />
     </div>
   );

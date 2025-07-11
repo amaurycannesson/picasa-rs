@@ -1,9 +1,10 @@
 use anyhow::{Context, Error, Result};
-use diesel::{RunQueryDsl, SelectableHelper, QueryDsl};
+use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 
 use crate::{
     database::{DbConnection, DbPool, schema},
     models::{NewPerson, Person},
+    repositories::FindPersonFilters,
 };
 
 #[cfg_attr(test, mockall::automock)]
@@ -11,8 +12,8 @@ pub trait PersonRepository {
     /// Inserts a person and returns the created person.
     fn insert_one(&mut self, new_person: NewPerson) -> Result<Person>;
 
-    /// Retrieves all persons.
-    fn find_many(&mut self) -> Result<Vec<Person>>;
+    /// Retrieves persons with optional filters.
+    fn find_many(&mut self, filters: FindPersonFilters) -> Result<Vec<Person>>;
 
     /// Finds a person by ID.
     fn find_by_id(&mut self, id: i32) -> Result<Person>;
@@ -47,11 +48,17 @@ impl PersonRepository for PgPersonRepository {
         Ok(person)
     }
 
-    fn find_many(&mut self) -> Result<Vec<Person>> {
+    fn find_many(&mut self, filters: FindPersonFilters) -> Result<Vec<Person>> {
         let mut conn = self.get_connection()?;
 
-        let people =
-            diesel::QueryDsl::select(schema::people::table, Person::as_select()).load(&mut conn)?;
+        let mut query =
+            diesel::QueryDsl::select(schema::people::table, Person::as_select()).into_boxed();
+
+        if let Some(ids) = filters.ids {
+            query = query.filter(schema::people::id.eq_any(ids));
+        }
+
+        let people = query.load(&mut conn)?;
 
         Ok(people)
     }

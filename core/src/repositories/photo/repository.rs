@@ -36,6 +36,15 @@ pub trait PhotoRepository {
         pagination: PaginationFilter,
         filters: PhotoFindFilters,
     ) -> Result<PaginatedPhotos>;
+
+    /// Returns all distinct country IDs from photos.
+    fn find_country_ids(&mut self) -> Result<Vec<i32>>;
+
+    /// Returns all distinct city IDs from photos.
+    fn find_city_ids(&mut self) -> Result<Vec<i32>>;
+
+    /// Returns all distinct person IDs from photos.
+    fn find_person_ids(&mut self) -> Result<Vec<i32>>;
 }
 
 pub struct PgPhotoRepository {
@@ -237,5 +246,38 @@ impl PhotoRepository for PgPhotoRepository {
             .get_result(&mut conn)?;
 
         Ok(photo)
+    }
+
+    fn find_country_ids(&mut self) -> Result<Vec<i32>> {
+        let mut conn = self.get_connection()?;
+        
+        let country_ids: Vec<Option<i32>> = schema::photos::table
+            .select(schema::photos::country_id)
+            .distinct()
+            .load(&mut conn)?;
+        
+        Ok(country_ids.into_iter().flatten().collect())
+    }
+
+    fn find_city_ids(&mut self) -> Result<Vec<i32>> {
+        let mut conn = self.get_connection()?;
+        
+        let city_ids: Vec<Option<i32>> = schema::photos::table
+            .select(schema::photos::city_id)
+            .distinct()
+            .load(&mut conn)?;
+        
+        Ok(city_ids.into_iter().flatten().collect())
+    }
+
+    fn find_person_ids(&mut self) -> Result<Vec<i32>> {
+        let mut conn = self.get_connection()?;
+        
+        let person_ids: Vec<Option<i32>> = schema::faces::table
+            .select(schema::faces::person_id)
+            .distinct()
+            .load(&mut conn)?;
+        
+        Ok(person_ids.into_iter().flatten().collect())
     }
 }

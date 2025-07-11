@@ -1,14 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Await, createFileRoute, Link, useRouter } from '@tanstack/react-router';
-import { AlertCircleIcon, CheckIcon, Loader2Icon } from 'lucide-react';
+import { CheckIcon, Loader2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { commands, PendingFaceReview, Person, Result } from '@/bindings';
+import { ErrorMessage } from '@/components/app/ErrorMessage';
 import { FaceCrop } from '@/components/app/FaceCrop';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,17 +37,7 @@ export const Route = createFileRoute('/people/')({
       pendingReviewsPromise,
     };
   },
-  errorComponent: ({ error }: { error: { message: string } }) => {
-    return (
-      <Alert variant="destructive">
-        <AlertCircleIcon />
-        <AlertTitle>Error while loading people</AlertTitle>
-        <AlertDescription>
-          <p>{error.message}</p>
-        </AlertDescription>
-      </Alert>
-    );
-  },
+  errorComponent: ErrorMessage,
 });
 
 function RouteComponent() {
