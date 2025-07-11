@@ -1,6 +1,7 @@
 use picasa_core::database::{self, DbPool};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
+use std::path::Path;
 use tauri_specta::{collect_commands, Builder};
 
 pub mod commands;
@@ -9,13 +10,19 @@ pub mod types;
 
 pub struct AppState {
     pub db_pool: DbPool,
+    pub image_service: services::image::ImageService,
 }
 
 impl AppState {
     pub fn new() -> anyhow::Result<Self> {
         let db_pool = database::create_pool()?;
+        let image_service =
+            services::image::ImageService::new(Path::new("../cache_dir").to_path_buf());
 
-        Ok(Self { db_pool })
+        Ok(Self {
+            db_pool,
+            image_service,
+        })
     }
 }
 

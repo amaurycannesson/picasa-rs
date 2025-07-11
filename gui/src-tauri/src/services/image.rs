@@ -24,9 +24,9 @@ pub struct BoundingBox {
 impl ImageService {
     pub fn new(cache_dir: PathBuf) -> Self {
         Self {
-            thumbnail_cache: RwLock::new(LruCache::new(NonZero::new(500).unwrap())), // Keep 500 thumbnails in memory
+            thumbnail_cache: RwLock::new(LruCache::new(NonZero::new(500).unwrap())),
             cache_dir,
-            thumbnail_width: 150,
+            thumbnail_width: 200,
         }
     }
 

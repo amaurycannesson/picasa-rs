@@ -3,21 +3,18 @@ use picasa_core::{
     services::{embedders::ClipTextEmbedder, PhotoSearchService},
 };
 #[cfg(debug_assertions)]
-use std::path::Path;
 use tauri::State;
 
 use crate::{
-    services::image::ImageService,
     types::{PaginatedPhotos, PhotoSearchOptions, PhotoSearchParams},
     AppState,
 };
 
 #[tauri::command]
 #[specta::specta]
-pub async fn load_photo(path: &str) -> Result<Vec<u8>, String> {
-    let img_service = ImageService::new(Path::new("../../cache_dir").to_path_buf());
-
-    img_service
+pub async fn load_photo(path: &str, state: State<'_, AppState>) -> Result<Vec<u8>, String> {
+    state
+        .image_service
         .get_thumbnail(path)
         .await
         .map_err(|e| format!("Failed to load photo: {}", e))
@@ -48,9 +45,7 @@ pub async fn search_photos(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_search_options(
-    state: State<'_, AppState>,
-) -> Result<PhotoSearchOptions, String> {
+pub async fn get_search_options(state: State<'_, AppState>) -> Result<PhotoSearchOptions, String> {
     let person_repository = PgPersonRepository::new(state.db_pool.clone());
     let photo_repository = PgPhotoRepository::new(state.db_pool.clone());
     let geo_repository = PgGeoRepository::new(state.db_pool.clone());
