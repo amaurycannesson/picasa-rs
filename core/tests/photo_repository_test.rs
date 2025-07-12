@@ -406,11 +406,11 @@ fn test_should_find_photos_by_country() {
     assert_eq!(result.items.len(), 2, "Should find 2 photos from Vietnam");
     assert_eq!(
         result.items[0].path,
-        "tests/data/images/sub/desk_vietnam.heic"
+        "tests/data/images/sub/sub/building_vietnam.jpg"
     );
     assert_eq!(
         result.items[1].path,
-        "tests/data/images/sub/sub/building_vietnam.jpg"
+        "tests/data/images/sub/desk_vietnam.heic"
     );
 }
 
@@ -492,10 +492,10 @@ fn test_should_find_photos_by_city() {
     );
     assert_eq!(
         result.items[0].path,
-        "tests/data/images/sub/desk_vietnam.heic"
+        "tests/data/images/sub/sub/building_vietnam.jpg"
     );
     assert_eq!(
         result.items[1].path,
-        "tests/data/images/sub/sub/building_vietnam.jpg"
+        "tests/data/images/sub/desk_vietnam.heic"
     );
 }

@@ -47,18 +47,19 @@ export const Route = createFileRoute('/search')({
 
 function SearchPage() {
   const { searchOptions } = Route.useLoaderData();
+  const search = Route.useSearch();
 
   const navigate = Route.useNavigate();
 
   const form = useForm<SearchFormValues>({
     resolver: zodResolver(searchFormSchema),
     defaultValues: {
-      text: '',
-      country_id: '',
-      city_id: '',
-      person_id: '',
-      date_from: '',
-      date_to: '',
+      text: search.text || '',
+      country_id: search.country_id ? String(search.country_id) : '',
+      city_id: search.city_id ? String(search.city_id) : '',
+      person_id: search.person_id ? String(search.person_id) : '',
+      date_from: search.date_from || '',
+      date_to: search.date_to || '',
     },
   });
 

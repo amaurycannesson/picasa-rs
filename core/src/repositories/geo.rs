@@ -59,6 +59,7 @@ impl GeoRepository for PgGeoRepository {
         let countries = schema::countries::table
             .select(CountryName::as_select())
             .filter(schema::countries::gid.eq_any(ids))
+            .order_by(schema::countries::name)
             .load(&mut conn)?;
 
         Ok(countries)
@@ -70,6 +71,7 @@ impl GeoRepository for PgGeoRepository {
         let cities = schema::cities::table
             .select(CityName::as_select())
             .filter(schema::cities::geonameid.eq_any(ids))
+            .order_by(schema::cities::name)
             .load(&mut conn)?;
 
         Ok(cities)
