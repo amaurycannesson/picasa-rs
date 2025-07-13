@@ -61,6 +61,14 @@ async loadFaceImage(faceId: number) : Promise<Result<number[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async listFaces(page: number, perPage: number, photoId: number | null) : Promise<Result<PaginatedFaces, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_faces", { page, perPage, photoId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async createPersonFromFaces(personName: string, faceIds: number[]) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_person_from_faces", { personName, faceIds }) };
@@ -99,6 +107,8 @@ async getPerson(id: number) : Promise<Result<Person, string>> {
 
 export type CityName = { id: number; name: string }
 export type CountryName = { id: number; name: string | null }
+export type Face = { id: number; photo_id: number; bbox_x: number; bbox_y: number; bbox_width: number; bbox_height: number; confidence: number; gender: string | null; person_id: number | null; created_at: string; updated_at: string }
+export type PaginatedFaces = { items: Face[]; total: number; page: number; per_page: number; total_pages: number }
 export type PaginatedPhotos = { items: Photo[]; total: number; page: number; per_page: number; total_pages: number }
 export type PendingFaceReview = { cluster_id: number; face_ids: number[]; confidence: number; face_count: number }
 export type Person = { id: number; name: string }

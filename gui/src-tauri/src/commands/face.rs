@@ -1,5 +1,6 @@
 use picasa_core::{
-    repositories::{PgFaceRepository, PgPersonRepository},
+    models::PaginationFilter,
+    repositories::{face::filters::FaceFindFilters, PgFaceRepository, PgPersonRepository},
     services::{face_recognition::RecognitionAction, FaceRecognitionService, FaceService},
     utils::progress_reporter::NoOpProgressReporter,
 };
@@ -8,7 +9,7 @@ use tauri::State;
 
 use crate::{
     services::image::{BoundingBox, ImageService},
-    types::PendingFaceReview,
+    types::{PaginatedFaces, PendingFaceReview},
     AppState,
 };
 
@@ -76,4 +77,27 @@ pub async fn get_pending_manual_reviews(
             }
         })
         .collect())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_faces(
+    page: i64,
+    per_page: i64,
+    photo_id: Option<i32>,
+    state: State<'_, AppState>,
+) -> Result<PaginatedFaces, String> {
+    let face_repository = PgFaceRepository::new(state.db_pool.clone());
+    let mut face_service = FaceService::new(face_repository);
+
+    let pagination = PaginationFilter { page, per_page };
+    let filters = FaceFindFilters {
+        photo_id,
+        ..Default::default()
+    };
+
+    face_service
+        .list(pagination, filters)
+        .map(PaginatedFaces::from)
+        .map_err(|e| format!("Failed to list faces: {}", e))
 }

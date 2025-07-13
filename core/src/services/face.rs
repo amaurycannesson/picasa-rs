@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 
 use crate::{
-    models::{Face, FaceWithPhoto, UpdatedFace},
-    repositories::face::repository::FaceRepository,
+    models::{Face, FaceWithPhoto, PaginatedFaces, PaginationFilter, UpdatedFace},
+    repositories::face::{filters::FaceFindFilters, repository::FaceRepository},
 };
 
 pub struct FaceService<FR: FaceRepository> {
@@ -24,6 +24,16 @@ impl<FR: FaceRepository> FaceService<FR> {
         self.face_repository
             .update_one(face_id, updated_face)
             .context("Failed to update face")
+    }
+
+    pub fn list(
+        &mut self,
+        pagination: PaginationFilter,
+        filters: FaceFindFilters,
+    ) -> Result<PaginatedFaces> {
+        self.face_repository
+            .find(pagination, filters)
+            .context("Failed to list faces")
     }
 }
 
