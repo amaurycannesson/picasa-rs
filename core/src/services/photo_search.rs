@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::{
-    models::{CityName, CountryName, PaginatedPhotos, PaginationFilter, Person},
+    models::{CityName, CountryName, PaginatedPhotos, PaginationFilter, Person, Photo},
     repositories::{
         FindPersonFilters, GeoRepository, PersonRepository, PhotoFindFilters, PhotoRepository,
     },
@@ -95,6 +95,11 @@ impl<PR: PhotoRepository, GR: GeoRepository, PR2: PersonRepository, E: TextEmbed
             countries,
             persons,
         })
+    }
+
+    /// Gets a single photo by its ID.
+    pub fn get(&mut self, id: i32) -> Result<Option<Photo>> {
+        self.photo_repository.find_by_id(id)
     }
 
     /// Searches for photos based on the provided search parameters.

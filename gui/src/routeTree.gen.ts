@@ -14,6 +14,7 @@ import { Route as PeopleRouteImport } from './routes/people'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PeopleIndexRouteImport } from './routes/people.index'
 import { Route as SearchGalleryRouteImport } from './routes/search.gallery'
+import { Route as PhotoIdRouteImport } from './routes/photo.$id'
 import { Route as PeopleIdRouteImport } from './routes/people.$id'
 import { Route as PeopleIdGalleryRouteImport } from './routes/people.$id.gallery'
 
@@ -42,6 +43,11 @@ const SearchGalleryRoute = SearchGalleryRouteImport.update({
   path: '/gallery',
   getParentRoute: () => SearchRoute,
 } as any)
+const PhotoIdRoute = PhotoIdRouteImport.update({
+  id: '/photo/$id',
+  path: '/photo/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PeopleIdRoute = PeopleIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/people': typeof PeopleRouteWithChildren
   '/search': typeof SearchRouteWithChildren
   '/people/$id': typeof PeopleIdRouteWithChildren
+  '/photo/$id': typeof PhotoIdRoute
   '/search/gallery': typeof SearchGalleryRoute
   '/people/': typeof PeopleIndexRoute
   '/people/$id/gallery': typeof PeopleIdGalleryRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/search': typeof SearchRouteWithChildren
   '/people/$id': typeof PeopleIdRouteWithChildren
+  '/photo/$id': typeof PhotoIdRoute
   '/search/gallery': typeof SearchGalleryRoute
   '/people': typeof PeopleIndexRoute
   '/people/$id/gallery': typeof PeopleIdGalleryRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/people': typeof PeopleRouteWithChildren
   '/search': typeof SearchRouteWithChildren
   '/people/$id': typeof PeopleIdRouteWithChildren
+  '/photo/$id': typeof PhotoIdRoute
   '/search/gallery': typeof SearchGalleryRoute
   '/people/': typeof PeopleIndexRoute
   '/people/$id/gallery': typeof PeopleIdGalleryRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/people'
     | '/search'
     | '/people/$id'
+    | '/photo/$id'
     | '/search/gallery'
     | '/people/'
     | '/people/$id/gallery'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/search'
     | '/people/$id'
+    | '/photo/$id'
     | '/search/gallery'
     | '/people'
     | '/people/$id/gallery'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '/people'
     | '/search'
     | '/people/$id'
+    | '/photo/$id'
     | '/search/gallery'
     | '/people/'
     | '/people/$id/gallery'
@@ -113,6 +125,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PeopleRoute: typeof PeopleRouteWithChildren
   SearchRoute: typeof SearchRouteWithChildren
+  PhotoIdRoute: typeof PhotoIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/search/gallery'
       preLoaderRoute: typeof SearchGalleryRouteImport
       parentRoute: typeof SearchRoute
+    }
+    '/photo/$id': {
+      id: '/photo/$id'
+      path: '/photo/$id'
+      fullPath: '/photo/$id'
+      preLoaderRoute: typeof PhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/people/$id': {
       id: '/people/$id'
@@ -209,6 +229,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PeopleRoute: PeopleRouteWithChildren,
   SearchRoute: SearchRouteWithChildren,
+  PhotoIdRoute: PhotoIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

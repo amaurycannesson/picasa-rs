@@ -13,9 +13,25 @@ async searchPhotos(params: PhotoSearchParams) : Promise<Result<PaginatedPhotos, 
     else return { status: "error", error: e  as any };
 }
 },
+async loadPhotoThumbnail(path: string) : Promise<Result<number[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("load_photo_thumbnail", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async loadPhoto(path: string) : Promise<Result<number[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("load_photo", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getPhoto(id: number) : Promise<Result<Photo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_photo", { id }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

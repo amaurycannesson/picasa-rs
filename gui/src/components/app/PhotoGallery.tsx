@@ -1,6 +1,7 @@
 import { Link, useSearch } from '@tanstack/react-router';
 
-import { PhotoThumbnail } from '@/components/app/PhotoThumbnail';
+import type { Photo } from '@/bindings';
+import { Photo as PhotoComponent } from '@/components/app/Photo';
 import {
   Pagination,
   PaginationContent,
@@ -13,14 +14,11 @@ import {
 import { useSidebar } from '@/components/ui/sidebar';
 
 export interface PhotoGalleryProps {
-  photos: Array<{ path: string }>;
+  photos: Photo[];
   totalPages: number;
 }
 
-export function PhotoGallery({
-  photos,
-  totalPages,
-}: PhotoGalleryProps) {
+export function PhotoGallery({ photos, totalPages }: PhotoGalleryProps) {
   const { open, isMobile } = useSidebar();
   const search = useSearch({ strict: false });
 
@@ -39,12 +37,14 @@ export function PhotoGallery({
     <div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
         {photos.map((p) => (
-          <div
+          <Link
             key={p.path}
-            className="aspect-square overflow-hidden rounded-lg shadow-sm transition-all duration-300 hover:scale-105 hover:shadow-lg"
+            to="/photo/$id"
+            params={{ id: p.id.toString() }}
+            className="aspect-square cursor-pointer overflow-hidden rounded-lg shadow-sm transition-all duration-300 hover:scale-105 hover:shadow-lg"
           >
-            <PhotoThumbnail photoPath={p.path} />
-          </div>
+            <PhotoComponent photoPath={p.path} asThumbnail />
+          </Link>
         ))}
       </div>
 

@@ -30,6 +30,16 @@ impl ImageService {
         }
     }
 
+    /// Get image data as wepb
+    pub async fn get_image(&self, photo_path: &str) -> anyhow::Result<Vec<u8>> {
+        let image = self.load_image(photo_path)?;
+
+        let mut buffer = Vec::new();
+        image.write_to(&mut std::io::Cursor::new(&mut buffer), ImageFormat::WebP)?;
+
+        Ok(buffer)
+    }
+
     /// Generate and cache thumbnail if it doesn't exist
     pub async fn get_thumbnail(&self, photo_path: &str) -> anyhow::Result<Vec<u8>> {
         let cache_key = format!("thumb_{}", self.hash_path(photo_path));

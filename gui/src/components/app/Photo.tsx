@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import { commands } from '@/bindings';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const PhotoThumbnail: React.FC<{ photoPath: string }> = ({ photoPath }) => {
+const Photo: React.FC<{ photoPath: string; asThumbnail?: boolean }> = ({
+  photoPath,
+  asThumbnail,
+}) => {
   const [imageSrc, setImageSrc] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -14,7 +17,9 @@ const PhotoThumbnail: React.FC<{ photoPath: string }> = ({ photoPath }) => {
       setLoading(true);
       setError(false);
 
-      const result = await commands.loadPhoto(photoPath);
+      const result = asThumbnail
+        ? await commands.loadPhotoThumbnail(photoPath)
+        : await commands.loadPhoto(photoPath);
 
       if (result.status === 'ok') {
         const blob = new Blob([new Uint8Array(result.data)], {
@@ -56,7 +61,13 @@ const PhotoThumbnail: React.FC<{ photoPath: string }> = ({ photoPath }) => {
     );
   }
 
-  return <img src={imageSrc} alt="Photo thumbnail" className="h-full w-full object-cover" />;
+  return (
+    <img
+      src={imageSrc}
+      alt="Photo thumbnail"
+      className={`h-full w-full object-${asThumbnail ? 'cover' : 'contain'}`}
+    />
+  );
 };
 
-export { PhotoThumbnail };
+export { Photo };

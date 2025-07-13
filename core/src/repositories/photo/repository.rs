@@ -45,6 +45,9 @@ pub trait PhotoRepository {
 
     /// Returns all distinct person IDs from photos.
     fn find_person_ids(&mut self) -> Result<Vec<i32>>;
+
+    /// Finds a single photo by its ID.
+    fn find_by_id(&mut self, id: i32) -> Result<Option<Photo>>;
 }
 
 pub struct PgPhotoRepository {
@@ -280,5 +283,16 @@ impl PhotoRepository for PgPhotoRepository {
             .load(&mut conn)?;
 
         Ok(person_ids.into_iter().flatten().collect())
+    }
+
+    fn find_by_id(&mut self, id: i32) -> Result<Option<Photo>> {
+        let mut conn = self.get_connection()?;
+
+        let photo = schema::photos::table
+            .find(id)
+            .first::<Photo>(&mut conn)
+            .optional()?;
+
+        Ok(photo)
     }
 }
