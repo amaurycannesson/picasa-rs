@@ -28,7 +28,7 @@ function RouteComponent() {
   return (
     <div className="flex h-[calc(100vh-6rem)]">
       <div className="flex-1/2">
-        <Photo photoPath={photo.path} />
+        <Photo photoPath={photo.path} faces={photoFaces.items} />
       </div>
       <div className="flex-1 overflow-y-auto px-4">
         <PhotoDescription photo={photo} />
