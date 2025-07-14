@@ -1,21 +1,27 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
+import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
+import { transliterate } from 'transliteration';
 import { z } from 'zod';
 
 import { commands } from '@/bindings';
 import { DatePicker } from '@/components/app/DatePicker';
 import { ErrorMessage } from '@/components/app/ErrorMessage';
 import { Button } from '@/components/ui/button';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { photoSearchSchema } from '@/photoSearch';
 
 const searchFormSchema = z.object({
@@ -91,67 +97,18 @@ function SearchPage() {
             control={form.control}
             name="country_id"
             render={({ field }) => (
-              <FormItem>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Country..." />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {searchOptions.countries.map((country) => (
-                      <SelectItem key={country.id} value={String(country.id)}>
-                        {country.name || `Country ${country.id}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
+              <CountryCombobox field={field} countries={searchOptions.countries} />
             )}
           />
           <FormField
             control={form.control}
             name="city_id"
-            render={({ field }) => (
-              <FormItem>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="City..." />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {searchOptions.cities.map((city) => (
-                      <SelectItem key={city.id} value={String(city.id)}>
-                        {city.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
+            render={({ field }) => <CityCombobox field={field} cities={searchOptions.cities} />}
           />
           <FormField
             control={form.control}
             name="person_id"
-            render={({ field }) => (
-              <FormItem>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Person..." />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {searchOptions.persons.map((person) => (
-                      <SelectItem key={person.id} value={String(person.id)}>
-                        {person.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
+            render={({ field }) => <PersonCombobox field={field} persons={searchOptions.persons} />}
           />
           <FormField
             control={form.control}
@@ -195,5 +152,212 @@ function SearchPage() {
       </Form>
       <Outlet />
     </div>
+  );
+}
+
+function createSmartFilter<T extends { id: number }>(items: T[], getValue: (item: T) => string) {
+  return (value: string, search: string) => {
+    const item = items.find((item) => String(item.id) === value);
+
+    if (!item) return 0;
+
+    const itemName = getValue(item);
+
+    return transliterate(itemName).toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+  };
+}
+
+interface CountryComboboxProps {
+  field: {
+    value: string | undefined;
+    onChange: (value: string) => void;
+  };
+  countries: Array<{ id: number; name: string | null }>;
+}
+
+function CountryCombobox({ field, countries }: CountryComboboxProps) {
+  const [countryOpen, setCountryOpen] = React.useState(false);
+
+  return (
+    <FormItem>
+      <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+        <FormControl>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={countryOpen}
+              className="w-full justify-between"
+            >
+              {field.value ? (
+                countries.find((country) => String(country.id) === field.value)?.name ||
+                `Country ${field.value}`
+              ) : (
+                <span className="text-muted-foreground">Country...</span>
+              )}
+              <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+        </FormControl>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+          <Command filter={createSmartFilter(countries, (country) => country.name || '')}>
+            <CommandInput placeholder="Search country..." />
+            <CommandList>
+              <CommandEmpty>No country found.</CommandEmpty>
+              <CommandGroup>
+                {countries.map((country) => (
+                  <CommandItem
+                    key={country.id}
+                    value={String(country.id)}
+                    onSelect={(currentValue) => {
+                      field.onChange(currentValue === field.value ? '' : currentValue);
+                      setCountryOpen(false);
+                    }}
+                  >
+                    <CheckIcon
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        field.value === String(country.id) ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    {country.name || `Country ${country.id}`}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </FormItem>
+  );
+}
+
+interface CityComboboxProps {
+  field: {
+    value: string | undefined;
+    onChange: (value: string) => void;
+  };
+  cities: Array<{ id: number; name: string }>;
+}
+
+function CityCombobox({ field, cities }: CityComboboxProps) {
+  const [cityOpen, setCityOpen] = React.useState(false);
+
+  return (
+    <FormItem>
+      <Popover open={cityOpen} onOpenChange={setCityOpen}>
+        <FormControl>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={cityOpen}
+              className="w-full justify-between"
+            >
+              {field.value ? (
+                cities.find((city) => String(city.id) === field.value)?.name ||
+                `City ${field.value}`
+              ) : (
+                <span className="text-muted-foreground">City...</span>
+              )}
+              <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+        </FormControl>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+          <Command filter={createSmartFilter(cities, (city) => city.name)}>
+            <CommandInput placeholder="Search city..." />
+            <CommandList>
+              <CommandEmpty>No city found.</CommandEmpty>
+              <CommandGroup>
+                {cities.map((city) => (
+                  <CommandItem
+                    key={city.id}
+                    value={String(city.id)}
+                    onSelect={(currentValue) => {
+                      field.onChange(currentValue === field.value ? '' : currentValue);
+                      setCityOpen(false);
+                    }}
+                  >
+                    <CheckIcon
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        field.value === String(city.id) ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    {city.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </FormItem>
+  );
+}
+
+interface PersonComboboxProps {
+  field: {
+    value: string | undefined;
+    onChange: (value: string) => void;
+  };
+  persons: Array<{ id: number; name: string }>;
+}
+
+function PersonCombobox({ field, persons }: PersonComboboxProps) {
+  const [personOpen, setPersonOpen] = React.useState(false);
+
+  return (
+    <FormItem>
+      <Popover open={personOpen} onOpenChange={setPersonOpen}>
+        <FormControl>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={personOpen}
+              className="w-full justify-between"
+            >
+              {field.value ? (
+                persons.find((person) => String(person.id) === field.value)?.name ||
+                `Person ${field.value}`
+              ) : (
+                <span className="text-muted-foreground">Person...</span>
+              )}
+              <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+        </FormControl>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+          <Command filter={createSmartFilter(persons, (person) => person.name)}>
+            <CommandInput placeholder="Search person..." />
+            <CommandList>
+              <CommandEmpty>No person found.</CommandEmpty>
+              <CommandGroup>
+                {persons.map((person) => (
+                  <CommandItem
+                    key={person.id}
+                    value={String(person.id)}
+                    onSelect={(currentValue) => {
+                      field.onChange(currentValue === field.value ? '' : currentValue);
+                      setPersonOpen(false);
+                    }}
+                  >
+                    <CheckIcon
+                      className={cn(
+                        'mr-2 h-4 w-4',
+                        field.value === String(person.id) ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    {person.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </FormItem>
   );
 }
