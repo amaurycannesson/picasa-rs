@@ -2,12 +2,25 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::{
-    models::{CityName, CountryName, PaginatedPhotos, PaginationFilter, Person, Photo},
+    models::{CityName, CountryName, Face, PaginatedPhotos, PaginationFilter, Person, Photo},
     repositories::{
-        FindPersonFilters, GeoRepository, PersonRepository, PhotoFindFilters, PhotoRepository,
+        FaceRepository, FindPersonFilters, GeoRepository, PersonRepository, PhotoFindFilters,
+        PhotoRepository, face::filters::FaceFindFilters,
     },
     services::embedders::text::TextEmbedder,
 };
+
+#[derive(Debug)]
+pub struct FaceWithPerson {
+    pub face: Face,
+    pub person: Option<Person>,
+}
+
+#[derive(Debug)]
+pub struct PhotoWithFacesAndPeople {
+    pub photo: Photo,
+    pub faces: Vec<FaceWithPerson>,
+}
 
 #[derive(Debug)]
 pub struct PhotoSearchOptions {
@@ -39,27 +52,36 @@ pub struct PhotoSearchService<
     PR: PhotoRepository,
     GR: GeoRepository,
     PR2: PersonRepository,
+    FR: FaceRepository,
     E: TextEmbedder,
 > {
     photo_repository: PR,
     geo_repository: GR,
     person_repository: PR2,
+    face_repository: FR,
     text_embedder: E,
 }
 
-impl<PR: PhotoRepository, GR: GeoRepository, PR2: PersonRepository, E: TextEmbedder>
-    PhotoSearchService<PR, GR, PR2, E>
+impl<
+    PR: PhotoRepository,
+    GR: GeoRepository,
+    PR2: PersonRepository,
+    FR: FaceRepository,
+    E: TextEmbedder,
+> PhotoSearchService<PR, GR, PR2, FR, E>
 {
     pub fn new(
         photo_repository: PR,
         geo_repository: GR,
         person_repository: PR2,
+        face_repository: FR,
         text_embedder: E,
     ) -> Self {
         Self {
             photo_repository,
             geo_repository,
             person_repository,
+            face_repository,
             text_embedder,
         }
     }
@@ -97,9 +119,69 @@ impl<PR: PhotoRepository, GR: GeoRepository, PR2: PersonRepository, E: TextEmbed
         })
     }
 
-    /// Gets a single photo by its ID.
-    pub fn get(&mut self, id: i32) -> Result<Option<Photo>> {
-        self.photo_repository.find_by_id(id)
+    /// Gets a single photo with its faces and associated people by photo ID.
+    pub fn get_photo_with_faces_and_people(
+        &mut self,
+        id: i32,
+    ) -> Result<Option<PhotoWithFacesAndPeople>> {
+        let photo = match self
+            .photo_repository
+            .find_by_id(id)
+            .context("Failed to find photo by id")?
+        {
+            Some(photo) => photo,
+            None => return Ok(None),
+        };
+
+        let faces = self
+            .face_repository
+            .find(
+                PaginationFilter {
+                    page: 1,
+                    per_page: 1000,
+                },
+                FaceFindFilters {
+                    photo_id: Some(id),
+                    ..Default::default()
+                },
+            )
+            .context("Failed to find faces for photo")?
+            .items;
+
+        let person_ids: Vec<i32> = faces
+            .iter()
+            .filter_map(|face| face.person_id)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        let persons = if !person_ids.is_empty() {
+            self.person_repository
+                .find_many(FindPersonFilters {
+                    ids: Some(person_ids),
+                })
+                .context("Failed to find persons for faces")?
+        } else {
+            Vec::new()
+        };
+
+        let mut person_map: std::collections::HashMap<i32, Person> = persons
+            .into_iter()
+            .map(|person| (person.id, person))
+            .collect();
+
+        let faces_with_people: Vec<FaceWithPerson> = faces
+            .into_iter()
+            .map(|face| {
+                let person = face.person_id.and_then(|id| person_map.remove(&id));
+                FaceWithPerson { face, person }
+            })
+            .collect();
+
+        Ok(Some(PhotoWithFacesAndPeople {
+            photo,
+            faces: faces_with_people,
+        }))
     }
 
     /// Searches for photos based on the provided search parameters.
@@ -162,8 +244,8 @@ impl<PR: PhotoRepository, GR: GeoRepository, PR2: PersonRepository, E: TextEmbed
 mod tests {
     use crate::{
         repositories::{
-            geo::MockGeoRepository, person::repository::MockPersonRepository,
-            photo::repository::MockPhotoRepository,
+            face::repository::MockFaceRepository, geo::MockGeoRepository,
+            person::repository::MockPersonRepository, photo::repository::MockPhotoRepository,
         },
         services::embedders::text::MockTextEmbedder,
     };
@@ -183,10 +265,12 @@ mod tests {
         let photo_repository = MockPhotoRepository::new();
         let geo_repository = MockGeoRepository::new();
         let person_repository = MockPersonRepository::new();
+        let face_repository = MockFaceRepository::new();
         let mut service = PhotoSearchService::new(
             photo_repository,
             geo_repository,
             person_repository,
+            face_repository,
             text_embedder,
         );
         let result = service.search(PhotoSearchParams {
@@ -209,8 +293,14 @@ mod tests {
             .returning(|_, __| Err(anyhow!("Repository error")));
 
         let person_repository = MockPersonRepository::new();
-        let mut service =
-            PhotoSearchService::new(repo, geo_repository, person_repository, text_embedder);
+        let face_repository = MockFaceRepository::new();
+        let mut service = PhotoSearchService::new(
+            repo,
+            geo_repository,
+            person_repository,
+            face_repository,
+            text_embedder,
+        );
         let result = service.search(PhotoSearchParams::default());
 
         assert_eq!(result.unwrap_err().to_string(), "Failed to find photos");

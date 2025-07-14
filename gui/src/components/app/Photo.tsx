@@ -1,12 +1,12 @@
 import { ImageIcon, ImageOffIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { commands, Face } from '@/bindings';
+import { commands, FaceWithPerson } from '@/bindings';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { FacesOverlay } from './FacesOverlay';
 
-const Photo: React.FC<{ photoPath: string; asThumbnail?: boolean; faces?: Face[] }> = ({
+const Photo: React.FC<{ photoPath: string; asThumbnail?: boolean; faces?: FaceWithPerson[] }> = ({
   photoPath,
   asThumbnail,
   faces = [],

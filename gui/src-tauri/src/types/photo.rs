@@ -2,7 +2,7 @@ use picasa_core::{models, services};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::types::{CityName, CountryName, Person};
+use crate::types::{face::Face, CityName, CountryName, Person};
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct Photo {
@@ -148,6 +148,40 @@ impl From<services::photo_search::PhotoSearchOptions> for PhotoSearchOptions {
                 .map(CountryName::from)
                 .collect(),
             persons: options.persons.into_iter().map(Person::from).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct FaceWithPerson {
+    pub face: Face,
+    pub person: Option<Person>,
+}
+
+impl From<services::photo_search::FaceWithPerson> for FaceWithPerson {
+    fn from(core_face_with_person: services::photo_search::FaceWithPerson) -> Self {
+        Self {
+            face: Face::from(core_face_with_person.face),
+            person: core_face_with_person.person.map(Person::from),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct PhotoWithFacesAndPeople {
+    pub photo: Photo,
+    pub faces: Vec<FaceWithPerson>,
+}
+
+impl From<services::photo_search::PhotoWithFacesAndPeople> for PhotoWithFacesAndPeople {
+    fn from(core_photo_with_faces: services::photo_search::PhotoWithFacesAndPeople) -> Self {
+        Self {
+            photo: Photo::from(core_photo_with_faces.photo),
+            faces: core_photo_with_faces
+                .faces
+                .into_iter()
+                .map(FaceWithPerson::from)
+                .collect(),
         }
     }
 }

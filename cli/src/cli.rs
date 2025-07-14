@@ -305,11 +305,13 @@ impl Cli {
                 page,
                 per_page,
             } => {
+                let face_repository = PgFaceRepository::new(pool.clone());
                 let text_embedder = ClipTextEmbedder::new()?;
                 let mut photo_search = PhotoSearchService::new(
                     photo_repository,
                     geo_repository,
                     person_repository,
+                    face_repository,
                     text_embedder,
                 );
 

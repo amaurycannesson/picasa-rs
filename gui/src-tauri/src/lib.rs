@@ -32,7 +32,7 @@ pub fn run() {
         commands::photo::search_photos,
         commands::photo::load_photo_thumbnail,
         commands::photo::load_photo,
-        commands::photo::get_photo,
+        commands::photo::get_photo_with_faces_and_people,
         commands::photo::get_search_options,
         commands::face::get_pending_manual_reviews,
         commands::face::load_face_image,

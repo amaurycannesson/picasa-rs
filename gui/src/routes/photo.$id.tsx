@@ -1,37 +1,33 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { commands } from '@/bindings';
-import { Photo as PhotoType } from '@/bindings';
+import { commands, Photo as PhotoType } from '@/bindings';
 import { ErrorMessage } from '@/components/app/ErrorMessage';
 import { Photo } from '@/components/app/Photo';
 
 export const Route = createFileRoute('/photo/$id')({
   component: RouteComponent,
   loader: async ({ params: { id } }) => {
-    const photo = await commands.getPhoto(parseInt(id));
-    const photoFaces = await commands.listFaces(1, 100, parseInt(id));
+    const photo = await commands.getPhotoWithFacesAndPeople(parseInt(id));
 
-    if (photoFaces.status === 'error') throw new Error(photoFaces.error);
     if (photo.status === 'error') throw new Error(photo.error);
 
     return {
       photo: photo.data,
-      photoFaces: photoFaces.data,
     };
   },
   errorComponent: ErrorMessage,
 });
 
 function RouteComponent() {
-  const { photo, photoFaces } = Route.useLoaderData();
+  const { photo } = Route.useLoaderData();
 
   return (
     <div className="flex h-[calc(100vh-6rem)]">
       <div className="flex-1/2">
-        <Photo photoPath={photo.path} faces={photoFaces.items} />
+        <Photo photoPath={photo.photo.path} faces={photo.faces} />
       </div>
       <div className="flex-1 overflow-y-auto px-4">
-        <PhotoDescription photo={photo} />
+        <PhotoDescription photo={photo.photo} />
       </div>
     </div>
   );

@@ -1,19 +1,23 @@
 use picasa_core::{
-    repositories::{PgGeoRepository, PgPersonRepository, PgPhotoRepository},
+    repositories::{PgFaceRepository, PgGeoRepository, PgPersonRepository, PgPhotoRepository},
     services::{embedders::ClipTextEmbedder, PhotoSearchService},
 };
 #[cfg(debug_assertions)]
 use tauri::State;
 
 use crate::{
-    types::{PaginatedPhotos, Photo, PhotoSearchOptions, PhotoSearchParams},
+    types::{PaginatedPhotos, PhotoSearchOptions, PhotoSearchParams, PhotoWithFacesAndPeople},
     AppState,
 };
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_photo(id: i32, state: State<'_, AppState>) -> Result<Photo, String> {
+pub async fn get_photo_with_faces_and_people(
+    id: i32,
+    state: State<'_, AppState>,
+) -> Result<PhotoWithFacesAndPeople, String> {
     let person_repository = PgPersonRepository::new(state.db_pool.clone());
+    let face_repository = PgFaceRepository::new(state.db_pool.clone());
     let photo_repository = PgPhotoRepository::new(state.db_pool.clone());
     let geo_repository = PgGeoRepository::new(state.db_pool.clone());
     let text_embedder = ClipTextEmbedder::new().unwrap();
@@ -21,15 +25,16 @@ pub async fn get_photo(id: i32, state: State<'_, AppState>) -> Result<Photo, Str
         photo_repository,
         geo_repository,
         person_repository,
+        face_repository,
         text_embedder,
     );
 
-    let photo = photo_search
-        .get(id)
-        .map_err(|e| format!("Failed to get photo: {}", e))?
+    let photo_with_faces_and_people = photo_search
+        .get_photo_with_faces_and_people(id)
+        .map_err(|e| format!("Failed to get photo with faces and people: {}", e))?
         .ok_or_else(|| format!("Photo with id {} not found", id))?;
 
-    Ok(Photo::from(photo))
+    Ok(PhotoWithFacesAndPeople::from(photo_with_faces_and_people))
 }
 
 #[tauri::command]
@@ -62,6 +67,7 @@ pub async fn search_photos(
     state: State<'_, AppState>,
 ) -> Result<PaginatedPhotos, String> {
     let person_repository = PgPersonRepository::new(state.db_pool.clone());
+    let face_repository = PgFaceRepository::new(state.db_pool.clone());
     let photo_repository = PgPhotoRepository::new(state.db_pool.clone());
     let geo_repository = PgGeoRepository::new(state.db_pool.clone());
     let text_embedder = ClipTextEmbedder::new().unwrap();
@@ -69,6 +75,7 @@ pub async fn search_photos(
         photo_repository,
         geo_repository,
         person_repository,
+        face_repository,
         text_embedder,
     );
 
@@ -82,6 +89,7 @@ pub async fn search_photos(
 #[specta::specta]
 pub async fn get_search_options(state: State<'_, AppState>) -> Result<PhotoSearchOptions, String> {
     let person_repository = PgPersonRepository::new(state.db_pool.clone());
+    let face_repository = PgFaceRepository::new(state.db_pool.clone());
     let photo_repository = PgPhotoRepository::new(state.db_pool.clone());
     let geo_repository = PgGeoRepository::new(state.db_pool.clone());
     let text_embedder = ClipTextEmbedder::new().unwrap();
@@ -89,6 +97,7 @@ pub async fn get_search_options(state: State<'_, AppState>) -> Result<PhotoSearc
         photo_repository,
         geo_repository,
         person_repository,
+        face_repository,
         text_embedder,
     );
 
