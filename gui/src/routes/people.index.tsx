@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Await, createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { CheckIcon, Loader2Icon } from 'lucide-react';
+import * as React from 'react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -9,6 +10,7 @@ import { z } from 'zod';
 import { commands, PendingFaceReview, Person, Result } from '@/bindings';
 import { ErrorMessage } from '@/components/app/ErrorMessage';
 import { FaceCrop } from '@/components/app/FaceCrop';
+import { PersonCombobox } from '@/components/app/PersonCombobox';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +24,7 @@ import {
 } from '@/components/ui/carousel';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 import { DEFAULT_PHOTO_SEARCH } from '@/photoSearch';
 
 export const Route = createFileRoute('/people/')({
@@ -42,6 +45,30 @@ export const Route = createFileRoute('/people/')({
 
 function RouteComponent() {
   const { pendingReviewsPromise, people } = Route.useLoaderData();
+  const router = useRouter();
+
+  const handleCreatePerson = async (face: PendingFaceReview, personName: string) => {
+    const result = await commands.createPersonFromFaces(personName, face.face_ids);
+
+    if (result.status === 'ok') {
+      toast.success(`${personName} has been created`);
+      router.invalidate();
+    } else {
+      toast.error(`Failed to create new person: ${result.error}`);
+    }
+  };
+
+  const handleAssignFaces = async (face: PendingFaceReview, personId: string) => {
+    const result = await commands.assignPersonToFaces(face.face_ids, Number(personId));
+
+    if (result.status === 'ok') {
+      const person = people?.find((p) => p.id === parseInt(personId));
+      toast.success(`Faces assigned to ${person?.name || 'person'}`);
+      router.invalidate();
+    } else {
+      toast.error(`Failed to assign faces: ${result.error}`);
+    }
+  };
 
   return (
     <div>
@@ -55,7 +82,20 @@ function RouteComponent() {
         }
       >
         {(res: Result<PendingFaceReview[], string>) =>
-          res.status === 'ok' && res.data.length > 0 && <PendingReview faces={res.data} />
+          res.status === 'ok' &&
+          res.data.length > 0 && (
+            <PendingReview faces={res.data}>
+              {(face) => (
+                <CardReview
+                  key={face.cluster_id}
+                  face={face}
+                  people={people}
+                  onCreatePerson={(personName) => handleCreatePerson(face, personName)}
+                  onAssignFaces={(personId) => handleAssignFaces(face, personId)}
+                />
+              )}
+            </PendingReview>
+          )
         }
       </Await>
       <People people={people} />
@@ -98,16 +138,26 @@ const personNameSchema = z.object({
   personName: z.string().min(3, 'Person name must be at least 3 characters'),
 });
 
+const assignFacesSchema = z.object({
+  personId: z.string().min(1, 'Please select a person'),
+});
+
 type PersonNameFormValues = z.infer<typeof personNameSchema>;
+type AssignFacesFormValues = z.infer<typeof assignFacesSchema>;
 
 const CardReview = ({
   face,
+  people,
   onCreatePerson,
+  onAssignFaces,
 }: {
   face: PendingFaceReview;
+  people: Person[];
   onCreatePerson: (personName: string) => Promise<void>;
+  onAssignFaces: (personId: string) => Promise<void>;
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isCreateLoading, setIsCreateLoading] = useState(false);
+  const [isAssignLoading, setIsAssignLoading] = useState(false);
 
   const form = useForm<PersonNameFormValues>({
     resolver: zodResolver(personNameSchema),
@@ -116,12 +166,28 @@ const CardReview = ({
     },
   });
 
+  const assignForm = useForm<AssignFacesFormValues>({
+    resolver: zodResolver(assignFacesSchema),
+    defaultValues: {
+      personId: '',
+    },
+  });
+
   const handleCreatePerson = async (values: PersonNameFormValues) => {
     if (values.personName) {
-      setIsLoading(true);
+      setIsCreateLoading(true);
       await onCreatePerson(values.personName);
-      setIsLoading(false);
+      setIsCreateLoading(false);
       form.reset();
+    }
+  };
+
+  const handleAssignFaces = async (values: AssignFacesFormValues) => {
+    if (values.personId) {
+      setIsAssignLoading(true);
+      await onAssignFaces(values.personId);
+      setIsAssignLoading(false);
+      assignForm.reset();
     }
   };
 
@@ -147,14 +213,14 @@ const CardReview = ({
           </>
         )}
       </Carousel>
-      <CardFooter className="p-0">
+      <CardFooter className="flex flex-col space-y-2 p-0">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleCreatePerson)} className="flex">
+          <form onSubmit={form.handleSubmit(handleCreatePerson)} className="flex w-full">
             <FormField
               control={form.control}
               name="personName"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="w-full">
                   <FormControl>
                     <Input placeholder="Enter person name" {...field} />
                   </FormControl>
@@ -162,8 +228,31 @@ const CardReview = ({
                 </FormItem>
               )}
             />
-            <Button type="submit" className="ml-2" disabled={!form.formState.isValid || isLoading}>
-              {isLoading ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
+            <Button
+              type="submit"
+              className="ml-2"
+              disabled={!form.formState.isValid || isCreateLoading}
+            >
+              {isCreateLoading ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
+            </Button>
+          </form>
+        </Form>
+        <Separator />
+        <Form {...assignForm}>
+          <form onSubmit={assignForm.handleSubmit(handleAssignFaces)} className="flex w-full">
+            <FormField
+              control={assignForm.control}
+              name="personId"
+              render={({ field }) => (
+                <PersonCombobox className="w-full" field={field} persons={people || []} />
+              )}
+            />
+            <Button
+              type="submit"
+              className="ml-2"
+              disabled={!assignForm.formState.isValid || isAssignLoading}
+            >
+              {isAssignLoading ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
             </Button>
           </form>
         </Form>
@@ -172,34 +261,18 @@ const CardReview = ({
   );
 };
 
-const PendingReview = ({ faces }: { faces: PendingFaceReview[] }) => {
-  const router = useRouter();
+interface PendingReviewProps {
+  faces: PendingFaceReview[];
+  children: (face: PendingFaceReview) => React.ReactNode;
+}
 
-  const handleCreatePerson = async (face: PendingFaceReview, personName: string) => {
-    const result = await commands.createPersonFromFaces(personName, face.face_ids);
-
-    if (result.status === 'ok') {
-      toast.success(`${personName} has been created`);
-      router.invalidate();
-    } else {
-      toast.error(`Failed to create new person: ${result.error}`);
-    }
-  };
-
+const PendingReview = ({ faces, children }: PendingReviewProps) => {
   return (
     <div className="pb-4">
       <h4 className="scroll-m-20 text-xl font-semibold tracking-tight">
         Pending review <Badge>{faces.length}</Badge>
       </h4>
-      <div className="pt-2">
-        {faces.map((face) => (
-          <CardReview
-            key={face.cluster_id}
-            face={face}
-            onCreatePerson={(personName) => handleCreatePerson(face, personName)}
-          />
-        ))}
-      </div>
+      <div className="pt-2">{faces.map((face) => children(face))}</div>
     </div>
   );
 };

@@ -37,6 +37,7 @@ pub fn run() {
         commands::face::get_pending_manual_reviews,
         commands::face::load_face_image,
         commands::face::list_faces,
+        commands::face::assign_person_to_faces,
         commands::person::create_person_from_faces,
         commands::person::list_persons,
         commands::person::get_person,

@@ -20,10 +20,15 @@ impl<FR: FaceRepository> FaceService<FR> {
             .context("Failed to get face with photo")
     }
 
-    pub fn update(&mut self, face_id: i32, updated_face: UpdatedFace) -> Result<Face> {
+    pub fn assign_person(&mut self, face_ids: Vec<i32>, person_id: i32) -> Result<Vec<Face>> {
         self.face_repository
-            .update_one(face_id, updated_face)
-            .context("Failed to update face")
+            .update_many(
+                face_ids,
+                UpdatedFace {
+                    person_id: Some(Some(person_id)),
+                },
+            )
+            .context("Failed to assign person to faces")
     }
 
     pub fn list(

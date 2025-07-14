@@ -69,6 +69,14 @@ async listFaces(page: number, perPage: number, photoId: number | null) : Promise
     else return { status: "error", error: e  as any };
 }
 },
+async assignPersonToFaces(faceIds: number[], personId: number) : Promise<Result<Face[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("assign_person_to_faces", { faceIds, personId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async createPersonFromFaces(personName: string, faceIds: number[]) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_person_from_faces", { personName, faceIds }) };

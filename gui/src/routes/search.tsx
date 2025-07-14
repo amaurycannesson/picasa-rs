@@ -3,12 +3,12 @@ import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { transliterate } from 'transliteration';
 import { z } from 'zod';
 
 import { commands } from '@/bindings';
 import { DatePicker } from '@/components/app/DatePicker';
 import { ErrorMessage } from '@/components/app/ErrorMessage';
+import { PersonCombobox } from '@/components/app/PersonCombobox';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -21,7 +21,7 @@ import {
 import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { cn, createSmartFilter } from '@/lib/utils';
 import { photoSearchSchema } from '@/photoSearch';
 
 const searchFormSchema = z.object({
@@ -108,7 +108,13 @@ function SearchPage() {
           <FormField
             control={form.control}
             name="person_id"
-            render={({ field }) => <PersonCombobox field={field} persons={searchOptions.persons} />}
+            render={({ field }) => (
+              <PersonCombobox
+                field={field}
+                persons={searchOptions.persons}
+                placeholder="Person..."
+              />
+            )}
           />
           <FormField
             control={form.control}
@@ -153,18 +159,6 @@ function SearchPage() {
       <Outlet />
     </div>
   );
-}
-
-function createSmartFilter<T extends { id: number }>(items: T[], getValue: (item: T) => string) {
-  return (value: string, search: string) => {
-    const item = items.find((item) => String(item.id) === value);
-
-    if (!item) return 0;
-
-    const itemName = getValue(item);
-
-    return transliterate(itemName).toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
-  };
 }
 
 interface CountryComboboxProps {
@@ -286,71 +280,6 @@ function CityCombobox({ field, cities }: CityComboboxProps) {
                       )}
                     />
                     {city.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    </FormItem>
-  );
-}
-
-interface PersonComboboxProps {
-  field: {
-    value: string | undefined;
-    onChange: (value: string) => void;
-  };
-  persons: Array<{ id: number; name: string }>;
-}
-
-function PersonCombobox({ field, persons }: PersonComboboxProps) {
-  const [personOpen, setPersonOpen] = React.useState(false);
-
-  return (
-    <FormItem>
-      <Popover open={personOpen} onOpenChange={setPersonOpen}>
-        <FormControl>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={personOpen}
-              className="w-full justify-between"
-            >
-              {field.value ? (
-                persons.find((person) => String(person.id) === field.value)?.name ||
-                `Person ${field.value}`
-              ) : (
-                <span className="text-muted-foreground">Person...</span>
-              )}
-              <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-        </FormControl>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-          <Command filter={createSmartFilter(persons, (person) => person.name)}>
-            <CommandInput placeholder="Search person..." />
-            <CommandList>
-              <CommandEmpty>No person found.</CommandEmpty>
-              <CommandGroup>
-                {persons.map((person) => (
-                  <CommandItem
-                    key={person.id}
-                    value={String(person.id)}
-                    onSelect={(currentValue) => {
-                      field.onChange(currentValue === field.value ? '' : currentValue);
-                      setPersonOpen(false);
-                    }}
-                  >
-                    <CheckIcon
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        field.value === String(person.id) ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    {person.name}
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -9,7 +9,7 @@ use tauri::State;
 
 use crate::{
     services::image::{BoundingBox, ImageService},
-    types::{PaginatedFaces, PendingFaceReview},
+    types::{face::Face, PaginatedFaces, PendingFaceReview},
     AppState,
 };
 
@@ -99,5 +99,21 @@ pub async fn list_faces(
     face_service
         .list(pagination, filters)
         .map(PaginatedFaces::from)
+        .map_err(|e| format!("Failed to list faces: {}", e))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn assign_person_to_faces(
+    face_ids: Vec<i32>,
+    person_id: i32,
+    state: State<'_, AppState>,
+) -> Result<Vec<Face>, String> {
+    let face_repository = PgFaceRepository::new(state.db_pool.clone());
+    let mut face_service = FaceService::new(face_repository);
+
+    face_service
+        .assign_person(face_ids, person_id)
+        .map(|f| f.into_iter().map(Face::from).collect())
         .map_err(|e| format!("Failed to list faces: {}", e))
 }
