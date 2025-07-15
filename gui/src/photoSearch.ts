@@ -32,7 +32,7 @@ export const photoSearchSchema = z.object({
     .default(null)
     .transform((val) => (val === '' ? null : val)),
   person_ids: z
-    .array(z.number())
+    .array(z.coerce.number())
     .nullable()
     .default(null)
     .transform((val) => (val && val.length === 0 ? null : val)),

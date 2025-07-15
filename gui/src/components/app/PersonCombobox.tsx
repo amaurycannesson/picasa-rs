@@ -1,21 +1,22 @@
-import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import { matchSorter } from 'match-sorter';
 import * as React from 'react';
 
 import { Person } from '@/bindings';
-import { Button } from '@/components/ui/button';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
+  Combobox,
+  ComboboxAnchor,
+  ComboboxBadgeItem,
+  ComboboxBadgeList,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxTrigger,
+} from '@/components/ui/combobox';
 import { FormControl, FormItem } from '@/components/ui/form';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, createSmartFilter } from '@/lib/utils';
 
-interface PersonComboboxProps extends React.ComponentProps<"div"> {
+interface PersonComboboxProps extends React.ComponentProps<'div'> {
   field: {
     value: string | undefined;
     onChange: (value: string) => void;
@@ -24,59 +25,117 @@ interface PersonComboboxProps extends React.ComponentProps<"div"> {
   placeholder?: string;
 }
 
-export function PersonCombobox({ field, persons, placeholder = 'Select person...', ...props }: PersonComboboxProps) {
-  const [personOpen, setPersonOpen] = React.useState(false);
+interface PeopleComboboxProps extends React.ComponentProps<'div'> {
+  field: {
+    value: string[] | undefined;
+    onChange: (value: string[]) => void;
+  };
+  persons: Person[];
+  placeholder?: string;
+}
+
+const usePersonFilter = (persons: Person[]) => {
+  return (options: string[], inputValue: string) => {
+    const filteredPersons = persons.filter((person) => options.includes(String(person.id)));
+
+    return matchSorter(filteredPersons, inputValue, {
+      keys: ['name'],
+      threshold: matchSorter.rankings.MATCHES,
+    }).map((person) => String(person.id));
+  };
+};
+
+const PersonOptions = ({ persons }: { persons: Person[] }) => (
+  <>
+    <ComboboxEmpty>No person found.</ComboboxEmpty>
+    {persons.map((person) => (
+      <ComboboxItem key={person.id} value={String(person.id)}>
+        {person.name}
+      </ComboboxItem>
+    ))}
+  </>
+);
+
+export function PersonCombobox({
+  field,
+  persons,
+  placeholder = 'Select person...',
+  ...props
+}: PersonComboboxProps) {
+  const onFilter = usePersonFilter(persons);
 
   return (
     <FormItem {...props}>
-      <Popover open={personOpen} onOpenChange={setPersonOpen}>
+      <Combobox
+        value={field.value || ''}
+        onValueChange={(value) => field.onChange(value)}
+        onFilter={onFilter}
+        multiple={false}
+        autoHighlight={false}
+      >
         <FormControl>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={personOpen}
-              className="w-full justify-between"
-            >
-              {field.value ? (
-                persons.find((person) => String(person.id) === field.value)?.name ||
-                `Person ${field.value}`
-              ) : (
-                <span className="text-muted-foreground">{placeholder}</span>
-              )}
-              <ChevronsUpDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
+          <ComboboxAnchor>
+            <ComboboxInput
+              placeholder={placeholder}
+              className="flex-1"
+            />
+            <ComboboxTrigger>
+              <ChevronDown className="h-4 w-4" />
+            </ComboboxTrigger>
+          </ComboboxAnchor>
         </FormControl>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-          <Command filter={createSmartFilter(persons, (person) => person.name)}>
-            <CommandInput placeholder="Search person..." />
-            <CommandList>
-              <CommandEmpty>No person found.</CommandEmpty>
-              <CommandGroup>
-                {persons.map((person) => (
-                  <CommandItem
-                    key={person.id}
-                    value={String(person.id)}
-                    onSelect={(currentValue) => {
-                      field.onChange(currentValue === field.value ? '' : currentValue);
-                      setPersonOpen(false);
-                    }}
-                  >
-                    <CheckIcon
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        field.value === String(person.id) ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
+        <ComboboxContent>
+          <PersonOptions persons={persons} />
+        </ComboboxContent>
+      </Combobox>
+    </FormItem>
+  );
+}
+
+export function PeopleCombobox({
+  field,
+  persons,
+  placeholder = 'Select people...',
+  ...props
+}: PeopleComboboxProps) {
+  const onFilter = usePersonFilter(persons);
+
+  return (
+    <FormItem {...props}>
+      <Combobox
+        value={field.value || []}
+        onValueChange={(value) => field.onChange(value)}
+        onFilter={onFilter}
+        multiple={true}
+        autoHighlight={true}
+      >
+        <FormControl>
+          <ComboboxAnchor className="h-full flex-wrap px-3 py-2">
+            <ComboboxBadgeList>
+              {(field.value || []).map((personId) => {
+                const person = persons.find((p) => String(p.id) === personId);
+                if (!person) return null;
+
+                return (
+                  <ComboboxBadgeItem key={personId} value={personId}>
                     {person.name}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                  </ComboboxBadgeItem>
+                );
+              })}
+            </ComboboxBadgeList>
+            <ComboboxInput
+              placeholder={placeholder}
+              className="h-auto min-w-20 flex-1"
+            />
+            <ComboboxTrigger className="absolute top-3 right-2">
+              <ChevronDown className="h-4 w-4" />
+            </ComboboxTrigger>
+          </ComboboxAnchor>
+        </FormControl>
+        <ComboboxContent>
+          <PersonOptions persons={persons} />
+        </ComboboxContent>
+      </Combobox>
     </FormItem>
   );
 }

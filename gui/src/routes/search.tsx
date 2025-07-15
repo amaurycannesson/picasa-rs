@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { commands } from '@/bindings';
 import { DatePicker } from '@/components/app/DatePicker';
 import { ErrorMessage } from '@/components/app/ErrorMessage';
-import { PersonCombobox } from '@/components/app/PersonCombobox';
+import { PeopleCombobox } from '@/components/app/PersonCombobox';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -28,7 +28,7 @@ const searchFormSchema = z.object({
   text: z.string().optional(),
   country_id: z.string().optional(),
   city_id: z.string().optional(),
-  person_id: z.string().optional(),
+  person_ids: z.array(z.string()).optional(),
   date_from: z.string().optional(),
   date_to: z.string().optional(),
 });
@@ -63,7 +63,7 @@ function SearchPage() {
       text: search.text || '',
       country_id: search.country_id ? String(search.country_id) : '',
       city_id: search.city_id ? String(search.city_id) : '',
-      person_id: search.person_ids ? String(search.person_ids[0]) : '',
+      person_ids: search.person_ids?.length ? search.person_ids?.map(String) : [],
       date_from: search.date_from || '',
       date_to: search.date_to || '',
     },
@@ -74,7 +74,6 @@ function SearchPage() {
       to: '/search/gallery',
       search: {
         ...photoSearchSchema.parse(values),
-        person_ids: values.person_id ? [Number(values.person_id)] : null,
       },
     });
   };
@@ -82,7 +81,7 @@ function SearchPage() {
   return (
     <div>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-4 gap-2 pb-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-3 gap-2 pb-4">
           <FormField
             control={form.control}
             name="text"
@@ -108,13 +107,15 @@ function SearchPage() {
           />
           <FormField
             control={form.control}
-            name="person_id"
+            name="person_ids"
             render={({ field }) => (
-              <PersonCombobox
-                field={field}
-                persons={searchOptions.persons}
-                placeholder="Person..."
-              />
+              <div className="col-span-3">
+                <PeopleCombobox
+                  field={field}
+                  persons={searchOptions.persons}
+                  placeholder="Person..."
+                />
+              </div>
             )}
           />
           <FormField
@@ -147,14 +148,18 @@ function SearchPage() {
               </FormItem>
             )}
           />
-          <Button type="submit">Search</Button>
-          <button
-            type="button"
-            onClick={() => form.reset()}
-            className="flex items-center justify-start text-sm text-gray-500 underline hover:text-gray-700"
-          >
-            Reset
-          </button>
+          <div className="flex">
+            <Button className="flex-1" type="submit">
+              Search
+            </Button>
+            <button
+              type="button"
+              onClick={() => form.reset()}
+              className="ml-2 flex items-center justify-start text-sm text-gray-500 underline hover:text-gray-700"
+            >
+              Reset
+            </button>
+          </div>
         </form>
       </Form>
       <Outlet />
