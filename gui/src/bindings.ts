@@ -121,9 +121,10 @@ export type PaginatedFaces = { items: Face[]; total: number; page: number; per_p
 export type PaginatedPhotos = { items: Photo[]; total: number; page: number; per_page: number; total_pages: number }
 export type PendingFaceReview = { cluster_id: number; face_ids: number[]; confidence: number; face_count: number }
 export type Person = { id: number; name: string }
+export type PersonMatchMode = "Any" | "All"
 export type Photo = { id: number; path: string; file_name: string; file_size: number; created_at: string; modified_at: string; hash: string | null; camera_make: string | null; camera_model: string | null; lens_model: string | null; orientation: number | null; date_taken_local: string | null; date_taken_utc: string | null; image_width: number | null; image_height: number | null; face_detection_completed: boolean; country_id: number | null; city_id: number | null }
 export type PhotoSearchOptions = { cities: CityName[]; countries: CountryName[]; persons: Person[] }
-export type PhotoSearchParams = { text: string | null; threshold: number | null; country: string | null; country_id: number | null; city: string | null; city_id: number | null; date_from: string | null; date_to: string | null; person_id: number | null; page: number; per_page: number }
+export type PhotoSearchParams = { text: string | null; threshold: number | null; country: string | null; country_id: number | null; city: string | null; city_id: number | null; date_from: string | null; date_to: string | null; person_ids: number[] | null; person_match_mode: PersonMatchMode | null; page: number; per_page: number }
 export type PhotoWithFacesAndPeople = { photo: Photo; faces: FaceWithPerson[] }
 
 /** tauri-specta globals **/

@@ -31,11 +31,12 @@ export const photoSearchSchema = z.object({
     .nullable()
     .default(null)
     .transform((val) => (val === '' ? null : val)),
-  person_id: z.coerce
-    .number()
+  person_ids: z
+    .array(z.number())
     .nullable()
     .default(null)
-    .transform((val) => (val === 0 ? null : val)),
+    .transform((val) => (val && val.length === 0 ? null : val)),
+  person_match_mode: z.enum(['All', 'Any']).nullable().default(null),
   page: z.number().min(1).default(1),
   per_page: z.number().min(1).default(15),
 });

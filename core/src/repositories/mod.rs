@@ -8,5 +8,5 @@ pub use face::repository::{FaceRepository, PgFaceRepository};
 pub use geo::{GeoRepository, PgGeoRepository};
 pub use person::filters::FindPersonFilters;
 pub use person::repository::{PersonRepository, PgPersonRepository};
-pub use photo::filters::{PhotoFindFilters, PhotoFindPathFilters};
+pub use photo::filters::{PersonMatchMode, PhotoFindFilters, PhotoFindPathFilters};
 pub use photo::repository::{PgPhotoRepository, PhotoRepository};

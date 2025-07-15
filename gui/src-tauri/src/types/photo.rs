@@ -1,4 +1,4 @@
-use picasa_core::{models, services};
+use picasa_core::{models, repositories, services};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -76,6 +76,18 @@ impl From<models::PaginatedPhotos> for PaginatedPhotos {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub enum PersonMatchMode {
+    Any,
+    All,
+}
+
+impl Default for PersonMatchMode {
+    fn default() -> Self {
+        PersonMatchMode::Any
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Type, Default)]
 pub struct PhotoSearchParams {
     pub text: Option<String>,
@@ -89,7 +101,8 @@ pub struct PhotoSearchParams {
     pub date_from: Option<String>,
     pub date_to: Option<String>,
 
-    pub person_id: Option<i32>,
+    pub person_ids: Option<Vec<i32>>,
+    pub person_match_mode: Option<PersonMatchMode>,
 
     pub page: u32,
     pub per_page: u32,
@@ -106,7 +119,14 @@ impl From<services::PhotoSearchParams> for PhotoSearchParams {
             city_id: photo_search_params.city_id,
             date_from: photo_search_params.date_from,
             date_to: photo_search_params.date_to,
-            person_id: photo_search_params.person_id,
+            person_ids: photo_search_params.person_ids,
+            person_match_mode: match photo_search_params.person_match_mode {
+                Some(mode) => match mode {
+                    repositories::PersonMatchMode::All => Some(PersonMatchMode::All),
+                    repositories::PersonMatchMode::Any => Some(PersonMatchMode::Any),
+                },
+                None => None,
+            },
             page: photo_search_params.page,
             per_page: photo_search_params.per_page,
         }
@@ -124,7 +144,14 @@ impl From<PhotoSearchParams> for services::PhotoSearchParams {
             city_id: photo_search_params.city_id,
             date_from: photo_search_params.date_from,
             date_to: photo_search_params.date_to,
-            person_id: photo_search_params.person_id,
+            person_ids: photo_search_params.person_ids,
+            person_match_mode: match photo_search_params.person_match_mode {
+                Some(mode) => match mode {
+                    PersonMatchMode::All => Some(repositories::PersonMatchMode::All),
+                    PersonMatchMode::Any => Some(repositories::PersonMatchMode::Any),
+                },
+                None => None,
+            },
             page: photo_search_params.page,
             per_page: photo_search_params.per_page,
         }

@@ -1,7 +1,5 @@
 use picasa_core::{
-    repositories::{
-        FaceRepository, PgFaceRepository, PgGeoRepository, PgPersonRepository, PgPhotoRepository,
-    },
+    repositories::{PgFaceRepository, PgGeoRepository, PgPersonRepository, PgPhotoRepository},
     services::{embedders::ClipTextEmbedder, photo_search::PhotoSearchService},
 };
 use serial_test::serial;

@@ -1,5 +1,17 @@
 use chrono::{DateTime, Utc};
 
+#[derive(Debug, Clone)]
+pub enum PersonMatchMode {
+    Any,
+    All,
+}
+
+impl Default for PersonMatchMode {
+    fn default() -> Self {
+        PersonMatchMode::Any
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct PhotoFindFilters {
     pub text_embedding: Option<Vec<f32>>,
@@ -11,7 +23,8 @@ pub struct PhotoFindFilters {
     pub date_from: Option<DateTime<Utc>>,
     pub date_to: Option<DateTime<Utc>>,
 
-    pub person_id: Option<i32>,
+    pub person_ids: Option<Vec<i32>>,
+    pub person_match_mode: Option<PersonMatchMode>,
 }
 
 #[derive(Debug, Clone, Default)]

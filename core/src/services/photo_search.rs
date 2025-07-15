@@ -4,8 +4,8 @@ use chrono::{DateTime, Utc};
 use crate::{
     models::{CityName, CountryName, Face, PaginatedPhotos, PaginationFilter, Person, Photo},
     repositories::{
-        FaceRepository, FindPersonFilters, GeoRepository, PersonRepository, PhotoFindFilters,
-        PhotoRepository, face::filters::FaceFindFilters,
+        FaceRepository, FindPersonFilters, GeoRepository, PersonMatchMode, PersonRepository,
+        PhotoFindFilters, PhotoRepository, face::filters::FaceFindFilters,
     },
     services::embedders::text::TextEmbedder,
 };
@@ -42,7 +42,8 @@ pub struct PhotoSearchParams {
     pub date_from: Option<String>,
     pub date_to: Option<String>,
 
-    pub person_id: Option<i32>,
+    pub person_ids: Option<Vec<i32>>,
+    pub person_match_mode: Option<PersonMatchMode>,
 
     pub page: u32,
     pub per_page: u32,
@@ -227,7 +228,8 @@ impl<
             find_filters.date_to = Some(parsed_date);
         }
 
-        find_filters.person_id = search_params.person_id;
+        find_filters.person_ids = search_params.person_ids;
+        find_filters.person_match_mode = search_params.person_match_mode;
 
         let pagination_filter = PaginationFilter {
             page: search_params.page as i64,

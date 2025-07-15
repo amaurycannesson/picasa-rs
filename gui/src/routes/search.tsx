@@ -63,7 +63,7 @@ function SearchPage() {
       text: search.text || '',
       country_id: search.country_id ? String(search.country_id) : '',
       city_id: search.city_id ? String(search.city_id) : '',
-      person_id: search.person_id ? String(search.person_id) : '',
+      person_id: search.person_ids ? String(search.person_ids[0]) : '',
       date_from: search.date_from || '',
       date_to: search.date_to || '',
     },
@@ -74,6 +74,7 @@ function SearchPage() {
       to: '/search/gallery',
       search: {
         ...photoSearchSchema.parse(values),
+        person_ids: values.person_id ? [Number(values.person_id)] : null,
       },
     });
   };

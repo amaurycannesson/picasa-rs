@@ -11,7 +11,7 @@ use crate::{
     models::{
         NewPhoto, PaginatedPhotoPaths, PaginatedPhotos, PaginationFilter, Photo, UpdatedPhoto,
     },
-    repositories::{PhotoFindFilters, PhotoFindPathFilters},
+    repositories::{PersonMatchMode, PhotoFindFilters, PhotoFindPathFilters},
     utils::serialize_float_array,
 };
 
@@ -132,13 +132,39 @@ impl PhotoRepository for PgPhotoRepository {
             select_query = select_query.filter(schema::photos::date_taken_utc.le(date_to));
         }
 
-        if let Some(person_id) = filters.person_id {
-            let photo_ids_subquery = schema::faces::table
-                .select(schema::faces::photo_id)
-                .filter(schema::faces::person_id.eq(person_id));
+        if let Some(person_ids) = filters.person_ids {
+            if !person_ids.is_empty() {
+                let match_mode = filters.person_match_mode.unwrap_or_default();
 
-            count_query = count_query.filter(schema::photos::id.eq_any(photo_ids_subquery.clone()));
-            select_query = select_query.filter(schema::photos::id.eq_any(photo_ids_subquery));
+                match match_mode {
+                    PersonMatchMode::Any => {
+                        let photo_ids_subquery = schema::faces::table
+                            .select(schema::faces::photo_id)
+                            .filter(schema::faces::person_id.eq_any(person_ids));
+
+                        count_query = count_query
+                            .filter(schema::photos::id.eq_any(photo_ids_subquery.clone()));
+                        select_query =
+                            select_query.filter(schema::photos::id.eq_any(photo_ids_subquery));
+                    }
+                    PersonMatchMode::All => {
+                        let person_count = person_ids.len() as i64;
+                        let photo_ids_subquery = schema::faces::table
+                            .select(schema::faces::photo_id)
+                            .filter(schema::faces::person_id.eq_any(person_ids))
+                            .group_by(schema::faces::photo_id)
+                            .having(
+                                diesel::dsl::count_distinct(schema::faces::person_id)
+                                    .eq(person_count),
+                            );
+
+                        count_query = count_query
+                            .filter(schema::photos::id.eq_any(photo_ids_subquery.clone()));
+                        select_query =
+                            select_query.filter(schema::photos::id.eq_any(photo_ids_subquery));
+                    }
+                }
+            }
         }
 
         if filters.text_embedding.is_some() {
