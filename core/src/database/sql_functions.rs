@@ -22,3 +22,5 @@ define_sql_function! {
     #[sql_name = "find_city_id_by_name"]
     fn find_city_id_by_name(name_query: Text) -> Nullable<Integer>;
 }
+
+define_sql_function! { fn coalesce(x: Nullable<Text>, y: Text) -> Text; }

@@ -69,9 +69,15 @@ impl GeoRepository for PgGeoRepository {
         let mut conn = self.get_connection()?;
 
         let cities = schema::cities::table
-            .select(CityName::as_select())
+            .select((
+                schema::cities::geonameid,
+                sql_functions::coalesce(schema::cities::asciiname, schema::cities::name),
+            ))
             .filter(schema::cities::geonameid.eq_any(ids))
-            .order_by(schema::cities::name)
+            .order_by(sql_functions::coalesce(
+                schema::cities::asciiname,
+                schema::cities::name,
+            ))
             .load(&mut conn)?;
 
         Ok(cities)
