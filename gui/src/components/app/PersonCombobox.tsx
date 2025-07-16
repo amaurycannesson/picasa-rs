@@ -75,10 +75,7 @@ export function PersonCombobox({
       >
         <FormControl>
           <ComboboxAnchor>
-            <ComboboxInput
-              placeholder={placeholder}
-              className="flex-1"
-            />
+            <ComboboxInput placeholder={placeholder} className="flex-1" />
             <ComboboxTrigger>
               <ChevronDown className="h-4 w-4" />
             </ComboboxTrigger>
@@ -123,10 +120,7 @@ export function PeopleCombobox({
                 );
               })}
             </ComboboxBadgeList>
-            <ComboboxInput
-              placeholder={placeholder}
-              className="h-auto min-w-20 flex-1"
-            />
+            <ComboboxInput placeholder={placeholder} className="h-auto min-w-20 flex-1" />
             <ComboboxTrigger className="absolute top-3 right-2">
               <ChevronDown className="h-4 w-4" />
             </ComboboxTrigger>

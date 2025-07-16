@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { commands } from '@/bindings';
+import { commands, PhotoSearchParams } from '@/bindings';
 import { ErrorMessage } from '@/components/app/ErrorMessage';
 import { Loader } from '@/components/app/Loader';
 import { PhotoGallery } from '@/components/app/PhotoGallery';
@@ -11,9 +11,9 @@ export const Route = createFileRoute('/people/$id/gallery')({
   validateSearch: photoSearchSchema,
   loaderDeps: ({ search }) => search,
   loader: async ({ params: { id }, deps }) => {
-    const params = {
+    const params: PhotoSearchParams = {
       ...deps,
-      person_id: parseInt(id),
+      person_ids: [parseInt(id)],
     };
 
     const result = await commands.searchPhotos(params);

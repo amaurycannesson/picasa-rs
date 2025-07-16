@@ -237,7 +237,11 @@ const CardReview = ({
             </Button>
           </form>
         </Form>
-        <Separator />
+        <div className="flex items-center w-full">
+          <Separator className="flex-1" />
+          <span className="px-4 text-sm text-muted-foreground">OR</span>
+          <Separator className="flex-1" />
+        </div>
         <Form {...assignForm}>
           <form onSubmit={assignForm.handleSubmit(handleAssignFaces)} className="flex w-full">
             <FormField
