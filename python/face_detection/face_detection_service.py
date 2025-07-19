@@ -1,9 +1,9 @@
-import cv2
-import pillow_heif
-import numpy as np
-
-from insightface.app import FaceAnalysis
 from typing import List
+
+import cv2
+import numpy as np
+import pillow_heif
+from insightface.app import FaceAnalysis
 
 from models import BoundingBox, Face
 

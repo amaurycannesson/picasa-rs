@@ -3,7 +3,6 @@ from fastapi import FastAPI, HTTPException
 from face_detection_service import FaceDetectionService
 from models import DetectFacesRequest, DetectFacesResponse
 
-
 app = FastAPI()
 
 face_detection_service = FaceDetectionService()
