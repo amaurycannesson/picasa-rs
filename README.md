@@ -1,79 +1,128 @@
-# picasar-rs 
+# picasa-rs
 
-A photo scanning tool with AI-powered semantic search capabilities.
+A personal project to help sort through all my photos by building a photo management tool with AI features while keeping everything local.
 
-## Features
+## Key Features
 
-- **Photo Scanning**: Recursively scan directories for photos with optional EXIF data extraction and file hashing
-- **AI Embeddings**: Generate CLIP model embeddings for semantic understanding of images
-- **Semantic Search**: Search your photo collection using natural language queries
-- **Face Detection**: Detect and embed faces in photos using AI
-- **Face Recognition**: Automatically cluster and recognize faces, with support for person assignment
-- **PostgreSQL Integration**: Uses PostgreSQL with pgvector extension for efficient similarity search
-- **HEIC Support**: Native support for Apple's HEIC image format
+- 📁 Scanning: recursive, EXIF extraction, HEIF support
+- 🔍 Search: semantic search with CLIP embeddings, geographic/temporal filtering and person-based search.
+- 👤 Face recognition: face detection, clustering, and person identification with manual review workflows
+- 🛠️ Multiple Interfaces: CLI, GUI, and MCP server
 
-## Usage
+## Interfaces
 
-### Scan Photos
+### 🖥️ GUI
+
+Tauri-based desktop application with React/TypeScript frontend
+
+<img src="./screenshot.png" width="480px" alt="gui screenshot" />
+
+### ⌨️ CLI
+
+Built with clap-rs for quick testing and running batch operations
+
 ```bash
-# Basic scan
-picasa-cli scan /path/to/photos
+# Scan and index photos
+cargo make cli scan /path/to/photos --with-exif --with-hash
 
-# Scan with both EXIF and hashing
-picasa-cli scan /path/to/photos --with-exif --with-hash
+# Generate embeddings for semantic search
+cargo make cli embed
+
+# Search photos with natural language
+cargo make cli search --text "sunset over mountains" --country "Spain"
+
+# Face detection and recognition
+cargo make cli face detect
+cargo make cli face recognize --similarity-threshold 0.7 --dry-run
 ```
 
-### Generate Embeddings
-```bash
-# Compute embeddings for all scanned photos
-picasa-cli embed
+### 🔗 MCP Server Integration
+
+Integrate with AI assistants like Claude Desktop via Model Context Protocol:
+
+**Usage with Claude Desktop:**
+
+```json
+{
+  "mcpServers": {
+    "Picasa": {
+      "command": "<picasa-rs>/target/release/picasa-mcp",
+      "env": {
+        "PICASA__CLIP_MODEL__DIR": "<picasa-rs>"
+      }
+    }
+  }
+}
 ```
 
-### Search Photos
+## Getting Started
+
+### Prerequisites
+
+**System Dependencies:**
+
+- `libheif` (for HEIC image support)
+- `libpq` (PostgreSQL client library)
+
+**AI Models:**
+
+- [CLIP model files](https://huggingface.co/openai/clip-vit-base-patch32/tree/refs%2Fpr%2F62) for semantic search and embeddings
+
+### Installation
+
+1. **Set up database:**
+
 ```bash
-# Basic semantic search
-picasa-cli search --text "sunset over mountains"
-
-# Search with filters
-picasa-cli search --text "beach" --country "Spain" --city "Barcelona"
-
-# Search with date range
-picasa-cli search --text "vacation" --date-from "2023-01-01T00:00:00Z" --date-to "2023-12-31T23:59:59Z"
-
-# Search with pagination
-picasa-cli search --text "mountains" --page 2 --per_page 20
-
-# Search with similarity threshold
-picasa-cli search --text "sunset" --threshold 0.8
+cargo make --profile development db-build
+cargo make --profile development db-start
+cargo make --profile development db-migrations
 ```
 
-### Face Detection and Recognition
+2. **Set up face detection server:**
+
 ```bash
-# Detect faces in photos
-picasa-cli face detect
-
-# Recognize and cluster faces
-picasa-cli face recognize
-
-# Preview face recognition without changes
-picasa-cli face recognize --dry-run
-
-# Recognize with custom parameters
-picasa-cli face recognize --similarity-threshold 0.7 --min-cluster-size 5 --auto-assign-threshold 0.9
+(cd python/face_detection && uv sync)
+cargo make face-ws
 ```
 
-## TODO
+### Workflow
 
-- [ ] Improve documentation (install steps)
-- [ ] Add integration tests
-- [ ] Package CLIP model with binary
-- [ ] Add GUI, Web server, MCP server
-- [ ] Configuration file system (~/.picasa-rs/config.toml)
-- [ ] Create image thumbnails
-- [ ] Logging system
+1. **Scan Photos**: `cargo make cli scan /path/to/photos --with-exif --with-hash`
+2. **Generate Embeddings**: `cargo make cli embed`
+3. **Detect Faces**: `cargo make cli face detect`
+4. **Launch GUI**: `cargo make gui`
 
-## Requirements
+## Architecture
 
-- PostgreSQL with pgvector and postgis extensions
-- Sys deps : libheif, libpq
-- CLIP model files
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Desktop GUI   │    │   CLI Tool      │    │   MCP Server    │
+│   (Tauri/React) │    │   (clap)        │    │   (rmcp)        │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          └──────────────────────┼──────────────────────┘
+                                 │
+                   ┌─────────────▼─────────────┐    ┌──────────────────┐
+                   │      Picasa Core          │───►│  Face Detection  │
+                   │   (Rust Library)          │    │     Server       │
+                   │  - Photo Management       │    │   (Python/       │
+                   │  - AI Services            │    │   InsightFace)   │
+                   │  - Database Layer         │    └──────────────────┘
+                   └─────────────┬─────────────┘
+                                 │
+                   ┌─────────────▼─────────────┐
+                   │     PostgreSQL            │
+                   │   + pgvector + postgis    │
+                   │(metadata, embeddings,...) │
+                   └───────────────────────────┘
+```
+
+## Development Status
+
+🚧 **In progress:**
+
+- [ ] Packaging (tauri, clip model, postgres, python server)
+- [ ] Albums/collections feature
+- [ ] Photo import interface with background embedding process
+- [ ] Settings interface
+- ...
