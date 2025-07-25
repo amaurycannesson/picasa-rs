@@ -1,8 +1,10 @@
+use crate::config::ClipModelConfig;
 use anyhow::{Context, Error, Result};
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::clip;
 use rayon::prelude::*;
+use std::path::Path;
 
 #[cfg_attr(test, mockall::automock)]
 pub trait ImageEmbedder {
@@ -17,17 +19,31 @@ pub struct ClipImageEmbedder {
 }
 
 impl ClipImageEmbedder {
-    pub fn new() -> Result<Self> {
-        let device = Device::Cpu;
+    pub fn new(clip_config: &ClipModelConfig) -> Result<Self> {
+        let device = match clip_config.device.as_str() {
+            "cpu" => Device::Cpu,
+            "cuda" => Device::new_cuda(0)?,
+            _ => Device::Cpu,
+        };
         let config = clip::ClipConfig::vit_base_patch32();
+        let model_path = Path::new(&clip_config.dir).join(&clip_config.safetensors_file);
+
+        if !model_path.exists() {
+            return Err(anyhow::anyhow!(
+                "Model file not found: {}",
+                model_path.display()
+            ));
+        }
+
         let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&["model.safetensors"], DType::F32, &device)
+            VarBuilder::from_mmaped_safetensors(&[&model_path], DType::F32, &device)
                 .map_err(Error::from)
                 .context("Failed to load model safetensors")?
         };
         let model = clip::ClipModel::new(vb, &config)
             .map_err(Error::from)
             .context("Failed to create CLIP model")?;
+
         Ok(Self {
             config,
             model,

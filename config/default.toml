@@ -1,0 +1,17 @@
+[database]
+host = "localhost"
+port = 5432
+database = "picasa_db"
+user = "postgres"
+password = "postgres"
+max_connections = 50
+
+[clip_model]
+dir = "."
+safetensors_file = "model.safetensors"
+tokenizer_file = "tokenizer.json"
+device = "cpu"
+
+[face_detection_server]
+host = "localhost"
+port = 8000

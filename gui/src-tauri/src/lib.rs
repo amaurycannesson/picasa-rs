@@ -1,4 +1,7 @@
-use picasa_core::database::{self, DbPool};
+use picasa_core::{
+    config::Config,
+    database::{self, DbPool},
+};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use std::path::Path;
@@ -11,17 +14,20 @@ pub mod types;
 pub struct AppState {
     pub db_pool: DbPool,
     pub image_service: services::image::ImageService,
+    pub config: Config,
 }
 
 impl AppState {
     pub fn new() -> anyhow::Result<Self> {
-        let db_pool = database::create_pool()?;
+        let config = Config::load()?;
+        let db_pool = database::create_pool(&config.database)?;
         let image_service =
             services::image::ImageService::new(Path::new("../cache_dir").to_path_buf());
 
         Ok(Self {
             db_pool,
             image_service,
+            config,
         })
     }
 }
@@ -46,7 +52,9 @@ pub fn run() {
     #[cfg(debug_assertions)]
     builder
         .export(
-            Typescript::default().bigint(specta_typescript::BigIntExportBehavior::Number),
+            Typescript::default()
+                .header("// @ts-nocheck")
+                .bigint(specta_typescript::BigIntExportBehavior::Number),
             "../src/bindings.ts",
         )
         .expect("Failed to export typescript bindings");

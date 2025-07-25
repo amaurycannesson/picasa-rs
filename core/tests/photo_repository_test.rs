@@ -9,11 +9,10 @@ use picasa_core::{
 };
 use serial_test::serial;
 
-mod db;
-use db::get_pool;
-
 mod utils;
-use utils::{insert_photo_fixtures, load_photos};
+use utils::{get_pool, insert_photo_fixtures, load_photos};
+
+use crate::utils::load_config;
 
 #[test]
 #[serial]
@@ -351,12 +350,14 @@ fn test_should_find_photos_by_date_range() {
 #[test]
 #[serial]
 fn test_should_find_photos_by_semantic_query() {
+    let config = load_config();
     let pool = get_pool();
 
     insert_photo_fixtures(pool.clone());
 
     let mut repo = PgPhotoRepository::new(pool.clone());
-    let text_embedder = ClipTextEmbedder::new().expect("Failed to create embedder");
+    let text_embedder =
+        ClipTextEmbedder::new(&config.clip_model).expect("Failed to create embedder");
     let text_embedding = text_embedder
         .embed("white building")
         .expect("Failed to create embedding");
@@ -417,6 +418,7 @@ fn test_should_find_photos_by_country() {
 #[test]
 #[serial]
 fn test_should_find_photos_with_combined_filters() {
+    let config = load_config();
     let pool = get_pool();
 
     insert_photo_fixtures(pool.clone());
@@ -428,7 +430,8 @@ fn test_should_find_photos_with_combined_filters() {
         .and_hms_opt(0, 0, 0)
         .unwrap();
 
-    let text_embedder = ClipTextEmbedder::new().expect("Failed to create embedder");
+    let text_embedder =
+        ClipTextEmbedder::new(&config.clip_model).expect("Failed to create embedder");
     let text_embedding = text_embedder
         .embed("white building")
         .expect("Failed to create embedding");

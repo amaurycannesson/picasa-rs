@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use picasa_core::{
+    config::Config,
     database,
     models::Photo,
     repositories::{
@@ -209,7 +210,8 @@ impl Cli {
     }
 
     pub fn run(self) -> Result<()> {
-        let pool = database::create_pool().expect("Failed to create database pool");
+        let config = Config::load().expect("Failed to load configuration");
+        let pool = database::create_pool(&config.database).expect("Failed to create database pool");
 
         let mut photo_repository = PgPhotoRepository::new(pool.clone());
         let geo_repository = PgGeoRepository::new(pool.clone());
@@ -235,7 +237,7 @@ impl Cli {
             }
             Commands::Embed {} => {
                 let progress_reporter = CliProgressReporter::new();
-                let image_embedder = ClipImageEmbedder::new()?;
+                let image_embedder = ClipImageEmbedder::new(&config.clip_model)?;
                 let mut photo_embedder =
                     PhotoEmbedderService::new(photo_repository, image_embedder, progress_reporter);
 
@@ -251,6 +253,7 @@ impl Cli {
                         photo_repository,
                         face_repository,
                         progress_reporter,
+                        &config.face_detection_server,
                     );
 
                     face_detection_service.detect_faces()?;
@@ -306,7 +309,7 @@ impl Cli {
                 per_page,
             } => {
                 let face_repository = PgFaceRepository::new(pool.clone());
-                let text_embedder = ClipTextEmbedder::new()?;
+                let text_embedder = ClipTextEmbedder::new(&config.clip_model)?;
                 let mut photo_search = PhotoSearchService::new(
                     photo_repository,
                     geo_repository,

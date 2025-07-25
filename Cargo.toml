@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "cli", "gui/src-tauri"]
+members = ["core", "cli", "gui/src-tauri", "mcp"]
 resolver = "3"
 
 
@@ -8,7 +8,6 @@ anyhow = "1.0.98"
 chrono = { version = "0.4.41", features = ["serde"] }
 diesel = { version = "2.2.0", features = ["postgres", "chrono", "r2d2"] }
 diesel_migrations = "2.2.0"
-dotenvy = "0.15"
 image = "0.25.6"
 libheif-rs = { version = "2.2.0", default-features = false, features = [
     "v1_19",

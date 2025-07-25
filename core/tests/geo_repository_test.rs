@@ -1,8 +1,8 @@
 use picasa_core::repositories::{GeoRepository, PgGeoRepository};
 use serial_test::serial;
 
-mod db;
-use db::get_pool;
+mod utils;
+use utils::get_pool;
 
 #[test]
 #[serial]

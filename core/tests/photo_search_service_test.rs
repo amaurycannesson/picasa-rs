@@ -4,15 +4,15 @@ use picasa_core::{
 };
 use serial_test::serial;
 
-mod db;
-use db::get_pool;
-
 mod utils;
-use utils::insert_photo_fixtures;
+use utils::{get_pool, insert_photo_fixtures};
+
+use crate::utils::load_config;
 
 #[test]
 #[serial]
 fn test_should_return_search_options() {
+    let config = load_config();
     let pool = get_pool();
 
     insert_photo_fixtures(pool.clone());
@@ -21,7 +21,7 @@ fn test_should_return_search_options() {
     let geo_repository = PgGeoRepository::new(pool.clone());
     let person_repository = PgPersonRepository::new(pool.clone());
     let face_repository = PgFaceRepository::new(pool.clone());
-    let text_embedder = ClipTextEmbedder::new().unwrap();
+    let text_embedder = ClipTextEmbedder::new(&config.clip_model).unwrap();
 
     let mut service = PhotoSearchService::new(
         photo_repository,

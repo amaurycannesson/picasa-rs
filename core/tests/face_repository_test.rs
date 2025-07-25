@@ -7,10 +7,8 @@ use picasa_core::{
 };
 use serial_test::serial;
 
-mod db;
-use db::get_pool;
-
 mod utils;
+use utils::get_pool;
 use utils::insert_photo_fixtures;
 
 use crate::utils::load_photos;

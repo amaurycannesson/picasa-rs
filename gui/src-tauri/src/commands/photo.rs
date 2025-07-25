@@ -2,7 +2,6 @@ use picasa_core::{
     repositories::{PgFaceRepository, PgGeoRepository, PgPersonRepository, PgPhotoRepository},
     services::{embedders::ClipTextEmbedder, PhotoSearchService},
 };
-#[cfg(debug_assertions)]
 use tauri::State;
 
 use crate::{
@@ -20,7 +19,7 @@ pub async fn get_photo_with_faces_and_people(
     let face_repository = PgFaceRepository::new(state.db_pool.clone());
     let photo_repository = PgPhotoRepository::new(state.db_pool.clone());
     let geo_repository = PgGeoRepository::new(state.db_pool.clone());
-    let text_embedder = ClipTextEmbedder::new().unwrap();
+    let text_embedder = ClipTextEmbedder::new(&state.config.clip_model).unwrap();
     let mut photo_search = PhotoSearchService::new(
         photo_repository,
         geo_repository,
@@ -70,7 +69,8 @@ pub async fn search_photos(
     let face_repository = PgFaceRepository::new(state.db_pool.clone());
     let photo_repository = PgPhotoRepository::new(state.db_pool.clone());
     let geo_repository = PgGeoRepository::new(state.db_pool.clone());
-    let text_embedder = ClipTextEmbedder::new().unwrap();
+    let text_embedder = ClipTextEmbedder::new(&state.config.clip_model)
+        .map_err(|e| format!("Failed to create text embedder: {}", e))?;
     let mut photo_search = PhotoSearchService::new(
         photo_repository,
         geo_repository,
@@ -92,7 +92,8 @@ pub async fn get_search_options(state: State<'_, AppState>) -> Result<PhotoSearc
     let face_repository = PgFaceRepository::new(state.db_pool.clone());
     let photo_repository = PgPhotoRepository::new(state.db_pool.clone());
     let geo_repository = PgGeoRepository::new(state.db_pool.clone());
-    let text_embedder = ClipTextEmbedder::new().unwrap();
+    let text_embedder = ClipTextEmbedder::new(&state.config.clip_model)
+        .map_err(|e| format!("Failed to create text embedder: {}", e))?;
     let mut photo_search = PhotoSearchService::new(
         photo_repository,
         geo_repository,

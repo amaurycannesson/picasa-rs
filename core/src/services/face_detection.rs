@@ -5,6 +5,7 @@ use pgvector::Vector;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    config::FaceDetectionServerConfig,
     models::{NewFace, PaginationFilter, UpdatedPhoto},
     repositories::{
         PhotoFindPathFilters, face::repository::FaceRepository, photo::repository::PhotoRepository,
@@ -43,15 +44,26 @@ pub struct FaceDetectionService<PR: PhotoRepository, FR: FaceRepository, P: Prog
     face_repository: FR,
     progress_reporter: P,
     http_client: reqwest::blocking::Client,
+    face_detection_url: String,
 }
 
 impl<PR: PhotoRepository, FR: FaceRepository, P: ProgressReporter> FaceDetectionService<PR, FR, P> {
-    pub fn new(photo_repository: PR, face_repository: FR, progress_reporter: P) -> Self {
+    pub fn new(
+        photo_repository: PR,
+        face_repository: FR,
+        progress_reporter: P,
+        face_detection_config: &FaceDetectionServerConfig,
+    ) -> Self {
+        let face_detection_url = format!(
+            "http://{}:{}/detect-faces",
+            face_detection_config.host, face_detection_config.port
+        );
         Self {
             photo_repository,
             face_repository,
             progress_reporter,
             http_client: reqwest::blocking::Client::new(),
+            face_detection_url,
         }
     }
 
@@ -132,7 +144,7 @@ impl<PR: PhotoRepository, FR: FaceRepository, P: ProgressReporter> FaceDetection
 
         let response = self
             .http_client
-            .post("http://localhost:8000/detect-faces")
+            .post(&self.face_detection_url)
             .json(&request)
             .send()
             .context("Failed to send face detection request")?;
@@ -208,8 +220,16 @@ mod tests {
         let mut face_repository = MockFaceRepository::new();
         face_repository.expect_insert_one().times(0);
 
-        let mut face_detection_service =
-            FaceDetectionService::new(photo_repository, face_repository, NoOpProgressReporter);
+        let face_detection_config = FaceDetectionServerConfig {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+        };
+        let mut face_detection_service = FaceDetectionService::new(
+            photo_repository,
+            face_repository,
+            NoOpProgressReporter,
+            &face_detection_config,
+        );
         let result = face_detection_service.detect_faces();
 
         assert!(result.is_ok());
@@ -234,8 +254,16 @@ mod tests {
         let mut face_repository = MockFaceRepository::new();
         face_repository.expect_insert_one().times(0);
 
-        let mut face_detection_service =
-            FaceDetectionService::new(photo_repository, face_repository, NoOpProgressReporter);
+        let face_detection_config = FaceDetectionServerConfig {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+        };
+        let mut face_detection_service = FaceDetectionService::new(
+            photo_repository,
+            face_repository,
+            NoOpProgressReporter,
+            &face_detection_config,
+        );
         let result = face_detection_service.detect_faces();
 
         assert!(result.is_err());
